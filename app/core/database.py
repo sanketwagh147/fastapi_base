@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import (
 )
 
 # Import DatabaseConfig from main_config
-from app.main_config import DatabaseConfig as DBConfig
+from app.main_config import DatabaseConfig
 
 
 class AsyncDBPool:
@@ -23,7 +23,8 @@ class AsyncDBPool:
     
     Usage:
         # Initialize once at app startup
-        await AsyncDBPool.init(config=DBConfig(database_url="..."))
+        config = DatabaseConfig()
+        await AsyncDBPool.init(config)
         
         # Use in your code
         async with AsyncDBPool.get_session() as session:
@@ -40,12 +41,12 @@ class AsyncDBPool:
     @classmethod
     async def init(
         cls,
-        config: DBConfig = DBConfig(),
+        config: DatabaseConfig,
     ) -> None:
         """Initialize async engine and sessionmaker.
 
         Args:
-            config: DBConfig instance with connection settings
+            config: DatabaseConfig instance with credentials and pool settings
         """
         if cls._engine is not None:
             return  # already initialized

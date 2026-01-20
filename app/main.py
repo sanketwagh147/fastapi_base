@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.core import AsyncDBPool, DBConfig, register_routers
+from app.core import AsyncDBPool, register_routers
 from app.main_config import fastapi_config, cors_config, database_config
 
 
@@ -13,17 +13,7 @@ from app.main_config import fastapi_config, cors_config, database_config
 async def lifespan(app: FastAPI):
     """Manage application lifecycle events."""
     # Startup: Initialize database pool
-    db_cfg = database_config
-    config = DBConfig(
-        url=db_cfg.url,
-        pool_size=db_cfg.pool_size,
-        max_overflow=db_cfg.max_overflow,
-        pool_timeout=db_cfg.pool_timeout,
-        pool_recycle=db_cfg.pool_recycle,
-        pool_pre_ping=db_cfg.pool_pre_ping,
-        echo=db_cfg.echo
-    )
-    await AsyncDBPool.init(config)
+    await AsyncDBPool.init(database_config)
     
     yield
     
