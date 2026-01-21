@@ -1,32 +1,36 @@
 [project]
 name = "eventually-backend"
 version = "0.1.0"
-description = "FastAPI backend for Eventually event management application"
+description = "Opinionated FastAPI base template with async SQLAlchemy, httpx connection pooling, and Pydantic-driven configuration. Production-ready with repository pattern, dependency injection, and environment-aware settings."
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [
     { name = "Sanket", email = "sanketwagh147@gmail.com" }
 ]
-keywords = ["fastapi", "events", "api", "sqlalchemy"]
+keywords = ["fastapi", "sqlalchemy", "async", "pydantic", "httpx", "template", "microservices", "rest-api"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Framework :: FastAPI",
+    "Framework :: Pydantic",
+    "Framework :: Pydantic :: 2",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
 ]
 
-# Core dependencies required for the application
+# Core dependencies required for the application - async-first stack
 dependencies = [
-    "fastapi>=0.109.0",
-    "uvicorn[standard]>=0.27.0",
-    "sqlalchemy[asyncio]>=2.0.25",
-    "pydantic>=2.5.0",
-    "pydantic-settings>=2.1.0",
-    "httpx>=0.26.0",
-    "asyncpg>=0.31.0",
+    "fastapi>=0.109.0",           # Modern async web framework with OpenAPI
+    "uvicorn[standard]>=0.27.0",  # ASGI server with auto-reload
+    "sqlalchemy[asyncio]>=2.0.25", # Async ORM with connection pooling
+    "pydantic>=2.5.0",            # Runtime validation and serialization
+    "pydantic-settings>=2.1.0",   # Environment-based configuration
+    "httpx>=0.26.0",              # Async HTTP client with HTTP/2 support
+    "asyncpg>=0.31.0",            # Fast PostgreSQL async driver
 ]
 
 # Optional dependency groups for different use cases
@@ -145,4 +149,3 @@ markers = [
     "slow: marks tests as slow",
     "integration: marks tests as integration tests",
 ]
-

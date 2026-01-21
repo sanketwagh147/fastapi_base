@@ -48,3 +48,12 @@ Thumbs.db
 *.old
 *.bak
 *.backup
+
+
+# Ignore personal workspace files
+*.code-workspace
+
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/tasks.json
+!.vscode/launch.json

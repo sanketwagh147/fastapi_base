@@ -5,7 +5,7 @@ from datetime import datetime
 # Everything in one place - clean and simple!
 router = APIRouter(
     prefix="/api",
-    tags=["health", "monitoring"],
+    tags=["health",],
 )
 
 
