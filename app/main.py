@@ -46,6 +46,7 @@ register_exception_handlers(app)
 # =============================================================================
 register_routers(app)
 
+# TODO: Integrate pytest tests and documentation generation
 
 if __name__ == "__main__":
     import uvicorn

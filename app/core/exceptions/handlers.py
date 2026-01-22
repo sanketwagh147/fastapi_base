@@ -11,7 +11,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 
-from app.core.exceptions import AppError, ErrorResponse, InternalServerError
+from .http_exceptions import AppError, ErrorResponse, InternalServerError
 
 logger = logging.getLogger(__name__)
 
@@ -102,12 +102,7 @@ async def generic_exception_handler(request: Request, exc: Exception) -> JSONRes
         detail={"error": str(exc)} if logger.level == logging.DEBUG else None,
     )
 
-    error_response = ErrorResponse(
-        error_code=internal_exc.error_code,
-        message=internal_exc.message,
-        detail=internal_exc.detail,
-        path=request.url.path,
-    )
+    error_response = internal_exc.to_error_response(path=request.url.path)
 
     return JSONResponse(
         status_code=internal_exc.status_code,

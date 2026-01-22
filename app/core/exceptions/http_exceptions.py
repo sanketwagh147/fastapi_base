@@ -60,14 +60,14 @@ class AppError(HTTPException):
             error_response = message
             self.message = error_response.message
             self.error_code = error_response.error_code
-            self.detail = error_response.detail
+            self.error_detail = error_response.detail
             # Use provided status_code or default
             actual_status_code = status_code
         else:
             # Handle individual parameters
             self.message = message
             self.error_code = error_code or self.__class__.__name__
-            self.detail = detail
+            self.error_detail = detail
             actual_status_code = status_code
 
         super().__init__(status_code=actual_status_code, detail=self.message)
@@ -84,7 +84,7 @@ class AppError(HTTPException):
         return ErrorResponse(
             error_code=self.error_code,
             message=self.message,
-            detail=self.detail,
+            detail=self.error_detail,
             path=path,
         )
 
