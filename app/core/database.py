@@ -1,41 +1,22 @@
-"""
-Async SQLAlchemy connection pool and database session management.
+"""Async SQLAlchemy connection pool and session management.
 
-This module provides a singleton connection pool manager for async SQLAlchemy operations.
-It handles database connections efficiently with connection pooling, health checks,
-and automatic cleanup.
-
-Key Features:
-    - Singleton pattern for global connection pool management
-    - Async-only operations (no blocking database calls)
-    - Connection pool with configurable size and overflow
-    - Pre-ping health checks to avoid stale connections
-    - Automatic rollback on exceptions
-    - Graceful shutdown with connection cleanup
-
-Design Decisions:
-    - Class-based singleton (AsyncDBPool) for lifecycle management
-    - Context manager pattern for automatic session cleanup
-    - expire_on_commit=False for better async performance
-    - Pool pre-ping enabled by default for reliability
+Features:
+    - Singleton connection pool manager
+    - Async-only operations
+    - Connection pooling with health checks
+    - Automatic session cleanup and rollback
 
 Usage:
-    # Initialize once at application startup (in lifespan)
-    config = DatabaseConfig(...)
+    # Initialize at startup
     await AsyncDBPool.init(config)
 
-    # Use in route handlers or services
+    # Use in routes
     async with AsyncDBPool.get_session() as session:
         result = await session.execute(select(Event))
-        events = result.scalars().all()
         await session.commit()
 
-    # Cleanup at shutdown (in lifespan)
+    # Cleanup at shutdown
     await AsyncDBPool.dispose()
-
-Thread Safety:
-    All methods are async and should be called from async context.
-    The pool itself is thread-safe through SQLAlchemy's engine.
 """
 
 from collections.abc import AsyncIterator
@@ -53,22 +34,12 @@ from app.main_config import DatabaseConfig
 
 
 class AsyncDBPool:
-    """Async-only SQLAlchemy engine + session manager.
-
-    This class manages database connection pooling and session lifecycle
-    for async SQLAlchemy operations.
+    """Async SQLAlchemy connection pool manager.
 
     Usage:
-        # Initialize once at app startup
-        config = DatabaseConfig()
         await AsyncDBPool.init(config)
-
-        # Use in your code
         async with AsyncDBPool.get_session() as session:
-            result = await session.execute(select(Event))
-            events = result.scalars().all()
-
-        # Cleanup at shutdown
+            await session.execute(select(Event))
         await AsyncDBPool.dispose()
     """
 
@@ -83,7 +54,7 @@ class AsyncDBPool:
         """Initialize async engine and sessionmaker.
 
         Args:
-            config: DatabaseConfig instance with credentials and pool settings
+            config: Database configuration
         """
         if cls._engine is not None:
             return  # already initialized
@@ -102,11 +73,7 @@ class AsyncDBPool:
 
     @classmethod
     async def dispose(cls) -> None:
-        """Dispose engine and clear session maker.
-
-        Should be called during application shutdown to cleanly close
-        all database connections.
-        """
+        """Close all database connections and cleanup."""
         if cls._engine is not None:
             await cls._engine.dispose()
             cls._engine = None
@@ -115,18 +82,16 @@ class AsyncDBPool:
     @classmethod
     @asynccontextmanager
     async def get_session(cls) -> AsyncIterator[AsyncSession]:
-        """Yield a session; rollback on exceptions.
+        """Get database session with automatic rollback on errors.
 
         Usage:
             async with AsyncDBPool.get_session() as session:
                 await session.execute(...)
                 await session.commit()
-
-        Raises:
-            RuntimeError: If pool not initialized
         """
         if cls._maker is None:
-            raise RuntimeError("AsyncDBPool not initialized. Call await AsyncDBPool.init() first.")
+            msg = "AsyncDBPool not initialized. Call await AsyncDBPool.init() first."
+            raise RuntimeError(msg)
 
         async with cls._maker() as session:
             try:
@@ -137,7 +102,7 @@ class AsyncDBPool:
 
 
 async def get_db() -> AsyncIterator[AsyncSession]:
-    """FastAPI dependency for async DB session.
+    """FastAPI dependency for database session.
 
     Usage:
         @app.get("/events")

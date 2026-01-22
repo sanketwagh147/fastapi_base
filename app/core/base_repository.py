@@ -1,31 +1,15 @@
 """
-Abstract base repository implementing the Repository Pattern for SQLAlchemy models.
+Generic repository base class for SQLAlchemy models with async CRUD operations.
 
-This module provides a generic, reusable repository base class that abstracts
-common CRUD (Create, Read, Update, Delete) operations for SQLAlchemy ORM models.
-
-Design Pattern: Repository Pattern
-    - Separates data access logic from business logic
-    - Provides a collection-like interface for domain objects
-    - Encapsulates query logic in specialized repository classes
-    - Makes testing easier through mockable interfaces
-
-Key Features:
-    - Generic type support for type-safe operations
-    - Common CRUD operations out of the box
-    - Bulk operations (create_many, update_many, delete_many)
+Features:
+    - Type-safe operations: BaseRepository[ModelType, IDType]
+    - CRUD operations: create, read, update, delete
+    - Bulk operations: create_many, update_many, delete_many
     - Filtering, pagination, and counting
-    - Soft delete support (if model has is_deleted field)
+    - Soft delete support (requires 'deleted_at' field)
     - Automatic error handling with rollback
-    - Async-first design for optimal performance
-
-Type Safety:
-    BaseRepository[ModelType, IDType] ensures:
-    - ModelType: Your SQLAlchemy model class
-    - IDType: Type of the primary key (int, str, UUID, etc.)
 
 Usage:
-    # Create a specialized repository
     class UserRepository(BaseRepository[User, int]):
         async def find_by_email(self, email: str) -> User | None:
             result = await self.session.execute(
@@ -33,19 +17,10 @@ Usage:
             )
             return result.scalar_one_or_none()
 
-    # Use in your application
     async with AsyncDBPool.get_session() as session:
         repo = UserRepository(User, session)
         user = await repo.create(email="user@example.com", name="John")
-        users = await repo.get_all(limit=10)
         await session.commit()
-
-Benefits:
-    - Reduces boilerplate code
-    - Consistent API across all repositories
-    - Easy to extend with domain-specific queries
-    - Testable through dependency injection
-    - Type-safe operations with proper IDE support
 """
 
 from abc import ABC
@@ -65,10 +40,10 @@ IDType = TypeVar("IDType", int, str)
 
 
 class BaseRepository(Generic[ModelType, IDType], ABC):
-    """Abstract base repository providing common CRUD operations."""
+    """Base repository with async CRUD operations for SQLAlchemy models."""
 
-    def __init__(self, model: type[ModelType], session: AsyncSession):
-        """Initialize repository with model type and session.
+    def __init__(self, model: type[ModelType], session: AsyncSession) -> None:
+        """Initialize repository.
 
         Args:
             model: SQLAlchemy model class
@@ -81,40 +56,33 @@ class BaseRepository(Generic[ModelType, IDType], ABC):
         """Create a new record.
 
         Args:
-            **kwargs: Field values for the new record
+            **kwargs: Field values
 
         Returns:
-            Created model instance
-
-        Raises:
-            IntegrityError: If unique constraint or foreign key violation occurs
-            SQLAlchemyError: For other database errors
+            Created instance
         """
         try:
             instance = self.model(**kwargs)
             self.session.add(instance)
             await self.session.flush()
             await self.session.refresh(instance)
-            return instance
         except IntegrityError:
             await self.session.rollback()
             raise
         except SQLAlchemyError:
             await self.session.rollback()
             raise
+        else:
+            return instance
 
     async def create_many(self, items: Sequence[dict[str, Any]]) -> Sequence[ModelType]:
-        """Create multiple records in bulk.
+        """Create multiple records.
 
         Args:
-            items: List of dictionaries containing field values
+            items: List of field value dicts
 
         Returns:
-            List of created model instances
-
-        Raises:
-            IntegrityError: If unique constraint or foreign key violation occurs
-            SQLAlchemyError: For other database errors
+            Created instances
         """
         try:
             instances = [self.model(**item) for item in items]
@@ -122,34 +90,35 @@ class BaseRepository(Generic[ModelType, IDType], ABC):
             await self.session.flush()
             for instance in instances:
                 await self.session.refresh(instance)
-            return instances
         except IntegrityError:
             await self.session.rollback()
             raise
         except SQLAlchemyError:
             await self.session.rollback()
             raise
+        else:
+            return instances
 
     async def get_by_id(self, id: IDType) -> ModelType | None:
-        """Get a record by ID.
+        """Get record by ID.
 
         Args:
-            id: Primary key value
+            id: Primary key
 
         Returns:
-            Model instance or None if not found
+            Instance or None
         """
         result = await self.session.execute(select(self.model).where(self.model.id == id))
         return result.scalar_one_or_none()
 
     async def get_by(self, **filters: Any) -> ModelType | None:
-        """Get a single record matching the given filters.
+        """Get single record by filters.
 
         Args:
-            **filters: Field-value pairs to filter by
+            **filters: Field-value pairs
 
         Returns:
-            Model instance or None if not found
+            Instance or None
         """
         query = select(self.model)
         for field, value in filters.items():
@@ -160,14 +129,14 @@ class BaseRepository(Generic[ModelType, IDType], ABC):
     async def get_all(
         self, limit: int | None = None, offset: int | None = None
     ) -> Sequence[ModelType]:
-        """Get all records with optional pagination.
+        """Get all records.
 
         Args:
-            limit: Maximum number of records to return
-            offset: Number of records to skip
+            limit: Max records
+            offset: Records to skip
 
         Returns:
-            Sequence of model instances
+            List of instances
         """
         query = select(self.model)
 
@@ -182,15 +151,15 @@ class BaseRepository(Generic[ModelType, IDType], ABC):
     async def filter(
         self, limit: int | None = None, offset: int | None = None, **filters: Any
     ) -> Sequence[ModelType]:
-        """Get records matching the given filters with optional pagination.
+        """Get records by filters.
 
         Args:
-            limit: Maximum number of records to return
-            offset: Number of records to skip
-            **filters: Field-value pairs to filter by
+            limit: Max records
+            offset: Records to skip
+            **filters: Field-value pairs
 
         Returns:
-            Sequence of model instances
+            List of instances
         """
         query = select(self.model)
 
@@ -206,20 +175,15 @@ class BaseRepository(Generic[ModelType, IDType], ABC):
         return result.scalars().all()
 
     async def update(self, id: IDType, refresh: bool = True, **kwargs: Any) -> ModelType | None:
-        """Update a record by ID.
+        """Update record by ID.
 
         Args:
-            id: Primary key value
-            refresh: Whether to refresh and return the updated instance
+            id: Primary key
+            refresh: Return updated instance
             **kwargs: Fields to update
 
         Returns:
-            Updated model instance or None if not found (when refresh=True)
-            None if refresh=False
-
-        Raises:
-            IntegrityError: If unique constraint or foreign key violation occurs
-            SQLAlchemyError: For other database errors
+            Updated instance or None
         """
         try:
             result = await self.session.execute(
@@ -229,140 +193,131 @@ class BaseRepository(Generic[ModelType, IDType], ABC):
 
             if refresh and result.rowcount > 0:
                 return await self.get_by_id(id)
-            return None
+
         except IntegrityError:
             await self.session.rollback()
             raise
         except SQLAlchemyError:
             await self.session.rollback()
             raise
+        else:
+            return None
 
     async def update_many(self, ids: Sequence[IDType], **kwargs: Any) -> int:
-        """Update multiple records by IDs.
+        """Update multiple records.
 
         Args:
-            ids: Sequence of primary key values
+            ids: Primary keys
             **kwargs: Fields to update
 
         Returns:
-            Number of records updated
-
-        Raises:
-            IntegrityError: If unique constraint or foreign key violation occurs
-            SQLAlchemyError: For other database errors
+            Number updated
         """
         try:
             result = await self.session.execute(
                 update(self.model).where(self.model.id.in_(ids)).values(**kwargs)
             )
             await self.session.flush()
-            return result.rowcount
         except IntegrityError:
             await self.session.rollback()
             raise
         except SQLAlchemyError:
             await self.session.rollback()
             raise
+        else:
+            return result.rowcount
 
     async def delete(self, id: IDType) -> bool:
-        """Delete a record by ID.
+        """Delete record by ID.
 
         Args:
-            id: Primary key value
+            id: Primary key
 
         Returns:
-            True if deleted, False if not found
-
-        Raises:
-            IntegrityError: If foreign key constraint prevents deletion
-            SQLAlchemyError: For other database errors
+            True if deleted
         """
         try:
             result = await self.session.execute(delete(self.model).where(self.model.id == id))
             await self.session.flush()
-            return result.rowcount > 0
+
         except IntegrityError:
             await self.session.rollback()
             raise
         except SQLAlchemyError:
             await self.session.rollback()
             raise
+        else:
+            return result.rowcount > 0
 
     async def delete_many(self, ids: Sequence[IDType]) -> int:
-        """Delete multiple records by IDs.
+        """Delete multiple records.
 
         Args:
-            ids: Sequence of primary key values
+            ids: Primary keys
 
         Returns:
-            Number of records deleted
-
-        Raises:
-            IntegrityError: If foreign key constraint prevents deletion
-            SQLAlchemyError: For other database errors
+            Number deleted
         """
         try:
             result = await self.session.execute(delete(self.model).where(self.model.id.in_(ids)))
             await self.session.flush()
-            return result.rowcount
         except IntegrityError:
             await self.session.rollback()
             raise
         except SQLAlchemyError:
             await self.session.rollback()
             raise
+        else:
+            return result.rowcount
 
     async def soft_delete(self, id: IDType) -> bool:
-        """Soft delete a record by setting deleted_at timestamp.
-
-        Note: Requires model to have 'deleted_at' field.
+        """Soft delete by setting deleted_at timestamp.
 
         Args:
-            id: Primary key value
+            id: Primary key
 
         Returns:
-            True if soft deleted, False if not found
+            True if deleted
 
-        Raises:
-            AttributeError: If model doesn't have deleted_at field
-            SQLAlchemyError: For database errors
+        Note:
+            Requires 'deleted_at' field on model
         """
 
         try:
             if not hasattr(self.model, "deleted_at"):
-                raise AttributeError(
-                    f"{self.model.__name__} does not support soft delete (missing 'deleted_at' field)"
-                )
+                msg = f"{self.model.__name__} does not support soft delete (missing 'deleted_at' field)"
+                raise AttributeError(msg)
 
             result = await self.session.execute(
                 update(self.model).where(self.model.id == id).values(deleted_at=datetime.now(UTC))
             )
             await self.session.flush()
-            return result.rowcount > 0
         except SQLAlchemyError:
             await self.session.rollback()
             raise
+        else:
+            return result.rowcount > 0
 
-    async def exists(self, id: IDType) -> bool:
-        """Check if a record exists.
+    async def exists(self, id_: IDType) -> bool:
+        """Check if record exists.
 
         Args:
-            id: Primary key value
+            id: Primary key
 
         Returns:
-            True if exists, False otherwise
+            True if exists
         """
-        result = await self.session.execute(select(self.model.id).where(self.model.id == id))
+        result = await self.session.execute(select(self.model.id).where(self.model.id == id_))
         return result.scalar_one_or_none() is not None
 
     async def count(self, **filters: Any) -> int:
-        """Count records matching optional filters.
+        """Count records.
 
         Args:
-            **filters: Optional field-value pairs to filter by
+            **filters: Optional filters
 
         Returns:
-            Total number of records matching filters
+            Total count
         """
         query = select(func.count()).select_from(self.model)
 
@@ -373,11 +328,7 @@ class BaseRepository(Generic[ModelType, IDType], ABC):
         return result.scalar_one()
 
     async def commit(self) -> None:
-        """Commit the current transaction.
-
-        Raises:
-            SQLAlchemyError: For database errors
-        """
+        """Commit current transaction."""
         try:
             await self.session.commit()
         except SQLAlchemyError:
@@ -385,9 +336,5 @@ class BaseRepository(Generic[ModelType, IDType], ABC):
             raise
 
     async def rollback(self) -> None:
-        """Rollback the current transaction.
-
-        Raises:
-            SQLAlchemyError: For database errors
-        """
+        """Rollback current transaction."""
         await self.session.rollback()
