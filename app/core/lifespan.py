@@ -16,7 +16,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.core.database import AsyncDBPool
-from app.core.rest_api import HttpxRestClientPool
+from app.core.http_calls import HttpxRestClientPool
 from app.main_config import database_config
 
 

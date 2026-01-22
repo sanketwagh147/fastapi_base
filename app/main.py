@@ -18,6 +18,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core import app_lifespan, register_routers
+from app.core.exceptions.handlers import register_exception_handlers
 from app.main_config import cors_config, fastapi_config
 
 app = FastAPI(
@@ -37,6 +38,8 @@ app.add_middleware(
     allow_headers=cors_config.allow_headers,
 )
 
+# Register exception handlers
+register_exception_handlers(app)
 
 # =============================================================================
 # Auto-register all routes

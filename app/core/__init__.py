@@ -12,6 +12,7 @@ from .lifespan import app_lifespan
 from .route_discovery import RouterDiscoveryError, discover_routers, register_routers
 
 __all__ = [
+    # Core
     "AsyncDBPool",
     "BaseRepository",
     "RouterDiscoveryError",
