@@ -103,8 +103,6 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=ENV_FILES, extra="ignore")
 
     env: Environment = Field(default=Environment.LOCAL)
-    app_name: str = Field(default="Eventually API")
-    app_version: str = Field(default="0.1.0")
     debug: bool = Field(default=False)
     secret_key: SecretStr | None = Field(default=None)
     host: str = Field(default="127.0.0.1")
@@ -169,7 +167,7 @@ class DatabaseCredentials(BaseSettings):
     model_config = SettingsConfigDict(env_file=ENV_FILES, env_prefix="DATABASE_", extra="ignore")
 
     host: str = Field(default="localhost")
-    port: int = Field(default=5432)
+    port: int
     user: str | None = Field(default=None)
     password: SecretStr | None = Field(default=None)
     db_name: str = Field(default="eventually")
