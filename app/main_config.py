@@ -154,7 +154,7 @@ class FastAPIConfig(BaseSettings):
     redoc_url: str | None = "/redoc"
     openapi_url: str | None = "/openapi.json"
     root_path: str = ""
-    debug: bool = False
+    debug: bool
 
     @field_validator("docs_url", "redoc_url", "openapi_url")
     @classmethod
