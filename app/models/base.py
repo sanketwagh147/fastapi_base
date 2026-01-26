@@ -11,7 +11,7 @@ from sqlalchemy import Column, DateTime
 from sqlalchemy.orm import DeclarativeBase
 
 
-def utc_now():
+def utc_now() -> datetime:
     """Returns current UTC time with timezone awareness.
 
     Replaces deprecated datetime.utcnow()
