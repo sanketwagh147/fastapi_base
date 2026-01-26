@@ -1,122 +1,262 @@
-"""Secret management utilities for K8s, environment variables, and file-based secrets."""
+"""
+Simple secrets management with pluggable loading strategies.
+
+File Structure:
+    env_files/
+    ├── .env_local           # URLs, non-sensitive config (committed)
+    ├── .env_prod            # URLs, non-sensitive config (committed)
+    ├── .secrets_local       # Passwords, keys (gitignored)
+    └── .secrets_prod        # Passwords, keys (gitignored)
+
+Modes:
+    - file: Read from {base_path}/.{env}_secrets (default)
+    - env: Read from environment variables {PROJECT}_{SECRET_NAME}
+    - custom: Override `load_secret()` method for Vault, AWS, etc.
+
+Usage:
+    # Default file mode
+    secrets = SecretsLoader()
+    db_password = secrets.get("DATABASE_PASSWORD")
+
+    # Environment variable mode
+    secrets = SecretsLoader(mode="env")
+    db_password = secrets.get("DATABASE_PASSWORD")  # reads EVENTUALLY_DATABASE_PASSWORD
+
+    # Custom mode - subclass and override
+    class VaultLoader(SecretsLoader):
+        def load_secret(self, name: str) -> str | None:
+            return vault_client.read(f"secret/{name}")
+"""
 
 import os
-from functools import lru_cache
+from enum import Enum
 from pathlib import Path
+from typing import Any
 
 from pydantic import Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
-
-from app.core.config_loader import get_env_files
 
 __all__ = [
-    "SecretsConfig",
-    "get_k8s_secret_name",
+    "SecretsLoader",
+    "SecretsMode",
+    "configure_secrets",
     "get_secret",
-    "read_secret_from_file",
+    "get_secrets_loader",
+    "secret_field",
 ]
 
+# Default secrets directory (app/env_files relative to this file)
+_DEFAULT_SECRETS_DIR = Path(__file__).parent.parent / "env_files"
 
-class SecretsConfig(BaseSettings):
-    """Configuration for K8s secrets paths and naming."""
 
-    model_config = SettingsConfigDict(env_file=get_env_files(), extra="ignore")
+class SecretsMode(str, Enum):
+    """Secret loading modes."""
 
-    secrets_folder_name: str = Field(default="secrets")
-    project_key: str = Field(default="eventually")
+    FILE = "file"  # Load from secrets file (default)
+    ENV = "env"  # Load from environment variables
+    CUSTOM = "custom"  # User-provided loader
+
+
+class SecretsLoader:
+    """
+    Flexible secrets loader with pluggable strategies.
+
+    Override `load_secret()` for custom implementations (Vault, AWS, etc.)
+    """
+
+    def __init__(
+        self,
+        mode: SecretsMode | str = SecretsMode.FILE,
+        project_name: str = "eventually",
+        env: str | None = None,
+        base_path: str | Path | None = None,
+    ) -> None:
+        """
+        Initialize secrets loader.
+
+        Args:
+            mode: "file", "env", or "custom"
+            project_name: Project name for env var prefix
+            env: Environment (local, dev, prod). Auto-detected from ENV var if None.
+            base_path: Secrets directory. Default: app/env_files (local) or /etc/{project_name} (prod)
+        """
+        self.mode = SecretsMode(mode) if isinstance(mode, str) else mode
+        self.project_name = project_name
+        self.env = env or os.getenv("ENV", "local")
+
+        # Default: app/env_files for local, /etc/{project_name} for production
+        if base_path:
+            self.base_path = Path(base_path)
+        elif self.env in ("local", "dev"):
+            self.base_path = _DEFAULT_SECRETS_DIR
+        else:
+            self.base_path = Path(f"/etc/{project_name}")
 
     @property
-    def secrets_base_path(self) -> str:
-        """Compute secrets base path from folder name."""
-        return f"/etc/{self.secrets_folder_name}" if self.secrets_folder_name else ""
+    def secrets_file(self) -> Path:
+        """Path to secrets file: {base_path}/.secrets_{env}"""
+        return Path(self.base_path) / f".secrets_{self.env}"
+
+    def get(self, name: str, default: str | None = None) -> str:
+        """
+        Get a secret value.
+
+        Args:
+            name: Secret name (e.g., "DATABASE_PASSWORD")
+            default: Default value if not found
+
+        Returns:
+            Secret value or default (plain string - let caller wrap if needed)
+
+        Raises:
+            ValueError: If secret not found and no default provided
+        """
+        value = self._load(name)
+
+        if value is not None:
+            return value
+
+        if default is not None:
+            return default
+
+        # Always raise if secret not found - fail fast on missing configuration
+        raise ValueError(self._error_message(name))
+
+    def _load(self, name: str) -> str | None:
+        """Load secret based on current mode."""
+        if self.mode == SecretsMode.FILE:
+            return self._load_from_file(name)
+        if self.mode == SecretsMode.ENV:
+            return self._load_from_env(name)
+        return self.load_secret(name)
+
+    def _load_from_file(self, name: str) -> str | None:
+        """Load secret from .{env}_secrets file (KEY=VALUE format)."""
+        if not self.secrets_file.exists():
+            return None
+
+        try:
+            for line in self.secrets_file.read_text().splitlines():
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "=" in line:
+                    key, value = line.split("=", 1)
+                    if key.strip() == name:
+                        return value.strip().strip("'\"")
+        except Exception:
+            return None
+
+        return None
+
+    def _load_from_env(self, name: str) -> str | None:
+        """Load from environment variable: {PROJECT}_{SECRET_NAME}"""
+        env_var = f"{self.project_name.upper()}_{name}"
+        return os.getenv(env_var)
+
+    def load_secret(self, name: str) -> str | None:
+        """
+        Override this for custom secret loading (Vault, AWS, etc.)
+
+        Example:
+            class VaultLoader(SecretsLoader):
+                def load_secret(self, name: str) -> str | None:
+                    return vault_client.read(f"secret/{name}")
+        """
+        msg = (
+            "Custom mode requires overriding load_secret() method.\n"
+            "Create a subclass and implement load_secret()."
+        )
+        raise NotImplementedError(msg)
+
+    def _error_message(self, name: str) -> str:
+        """Generate helpful error message based on mode."""
+        if self.mode == SecretsMode.FILE:
+            return (
+                f"Required secret '{name}' not found.\n"
+                f"  Mode: file\n"
+                f"  File: {self.secrets_file}\n"
+                f"  Add: {name}=your_value"
+            )
+        if self.mode == SecretsMode.ENV:
+            env_var = f"{self.project_name.upper()}_{name}"
+            return (
+                f"Required secret '{name}' not found.\n"
+                f"  Mode: env\n"
+                f"  Expected: {env_var}\n"
+                f"  Set: export {env_var}=your_value"
+            )
+        return f"Required secret '{name}' not found in custom loader."
 
 
-@lru_cache
-def get_secrets_config() -> SecretsConfig:
-    """Get cached secrets configuration."""
-    return SecretsConfig()
+# =============================================================================
+# Global Instance (using container pattern to avoid 'global' statement)
+# =============================================================================
+
+_state: dict[str, SecretsLoader | None] = {"loader": None}
 
 
-def read_secret_from_file(secret_name: str, base_path: str | None) -> str | None:
-    """Read secret from mounted file (K8s secret or Docker secret).
-
-    Args:
-        secret_name: Name of the secret file
-        base_path: Directory path where secret is mounted
-
-    Returns:
-        Secret value as string, or None if not found or error occurred
+def configure_secrets(
+    mode: SecretsMode | str = SecretsMode.FILE,
+    project_name: str = "eventually",
+    base_path: str | None = None,
+    loader: SecretsLoader | None = None,
+) -> None:
     """
-    if not base_path:
-        return None
-
-    secret_path = Path(base_path) / secret_name
-    if not secret_path.exists():
-        return None
-
-    try:
-        return secret_path.read_text().strip()
-    except Exception:
-        return None
-
-
-def get_k8s_secret_name(secret_name: str) -> str:
-    """Get K8s-style secret filename with project prefix.
+    Configure global secrets loader. Call once at app startup.
 
     Args:
-        secret_name: Base secret name (e.g., "database-password")
-
-    Returns:
-        Prefixed secret name (e.g., "eventually_database-password")
+        mode: "file", "env", or "custom"
+        project_name: Project name
+        base_path: Override secrets directory
+        loader: Custom SecretsLoader instance (for custom mode)
     """
-    config = get_secrets_config()
-    return f"{config.project_key}_{secret_name}"
+    if loader:
+        _state["loader"] = loader
+    else:
+        _state["loader"] = SecretsLoader(
+            mode=mode,
+            project_name=project_name,
+            base_path=base_path,
+        )
 
 
-def get_secret(
-    env_var: str, secret_file_name: str | None = None, default: str | None = None
-) -> str | None:
-    """Get secret value from multiple sources in priority order.
+def get_secrets_loader() -> SecretsLoader:
+    """Get global secrets loader. Auto-configures from env vars if not set."""
+    if _state["loader"] is None:
+        # Auto-configure from environment
+        mode = os.getenv("SECRETS_MODE", "file")
+        project_name = os.getenv("SECRETS_PROJECT_NAME", "eventually")
+        base_path = os.getenv("SECRETS_BASE_PATH")
 
-    Priority order:
-    1. K8s mounted file: /etc/secrets/{PROJECT_KEY}_{secret_file_name}
-    2. Environment variable: {env_var}
-    3. File path from env variable: {env_var}_FILE
-    4. Default value
+        _state["loader"] = SecretsLoader(
+            mode=mode,
+            project_name=project_name,
+            base_path=base_path,
+        )
+
+    return _state["loader"]
+
+
+def get_secret(name: str, default: str | None = None) -> str:
+    """Get a secret using the global loader. Raises if not found and no default."""
+    return get_secrets_loader().get(name, default)
+
+
+def secret_field(name: str, default: str | None = None) -> Any:
+    """
+    Create a Pydantic Field that loads value from secrets.
+
+    Usage in Pydantic models:
+        class DatabaseCredentials(BaseSettings):
+            password: SecretStr | None = secret_field("DATABASE_PASSWORD")
+            user: str = secret_field("DATABASE_USER", default="postgres")
 
     Args:
-        env_var: Environment variable name to check
-        secret_file_name: K8s secret file name (without project prefix)
+        name: Secret name (e.g., "DATABASE_PASSWORD")
         default: Default value if secret not found
 
     Returns:
-        Secret value or None
-
-    Example:
-        >>> get_secret("DATABASE_PASSWORD", "database-password", "default_pass")
-        # Checks: /etc/secrets/eventually_database-password
-        # Then: $DATABASE_PASSWORD
-        # Then: file at $DATABASE_PASSWORD_FILE
-        # Finally: returns "default_pass"
+        Pydantic Field with default_factory that loads from secrets
     """
 
-    # 1. Try K8s mounted secret file
-    if secret_file_name:
-        config = get_secrets_config()
-        if config.secrets_base_path:
-            k8s_name = get_k8s_secret_name(secret_file_name)
-            if value := read_secret_from_file(k8s_name, config.secrets_base_path):
-                return value
-
-    # 2. Try environment variable
-    if value := os.getenv(env_var):
-        return value
-
-    # 3. Try file path from {ENV_VAR}_FILE pattern
-    if file_path := os.getenv(f"{env_var}_FILE"):
-        path = Path(file_path)
-        if value := read_secret_from_file(path.name, str(path.parent)):
-            return value
-
-    # 4. Return default
-    return default
+    return Field(default_factory=lambda: get_secret(name, default))

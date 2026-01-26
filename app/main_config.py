@@ -74,11 +74,11 @@ from functools import lru_cache
 from typing import Any
 from urllib.parse import quote_plus
 
-from pydantic import Field, SecretStr, field_validator, model_validator
+from pydantic import Field, Secret, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.core.config_loader import Environment, get_env_files
-from app.core.secrets import get_secret
+from app.core.secrets import get_secret, secret_field
 
 # =============================================================================
 # LOCAL DEBUG OVERRIDE - Change this to test other environments locally
@@ -110,12 +110,16 @@ class Settings(BaseSettings):
     reload: bool = Field(default=False)
     workers: int = Field(default=1)
 
-    @model_validator(mode="before")
-    @classmethod
-    def _load_secrets(cls, data: dict[str, Any]) -> dict[str, Any]:
-        if not data.get("secret_key"):
-            data["secret_key"] = get_secret("SECRET_KEY", "app-secret-key")
-        return data
+    # @model_validator(mode="before")
+    # @classmethod
+    # def _load_secrets(cls, data: dict[str, Any]) -> dict[str, Any]:
+    #     if not data.get("secret_key"):
+    #         is_prod = data.get("env") == Environment.PROD
+    #         data["secret_key"] = get_secret(
+    #             "SECRET_KEY",
+    #             default="dev-secret-key" if not is_prod else None,
+    #         )
+    #     return data
 
     @field_validator("debug", "reload")
     @classmethod
@@ -154,7 +158,7 @@ class FastAPIConfig(BaseSettings):
     redoc_url: str | None = "/redoc"
     openapi_url: str | None = "/openapi.json"
     root_path: str = ""
-    debug: bool
+    debug: bool = False
 
     @field_validator("docs_url", "redoc_url", "openapi_url")
     @classmethod
@@ -164,26 +168,34 @@ class FastAPIConfig(BaseSettings):
 
 
 class DatabaseCredentials(BaseSettings):
+    """
+    Database credentials - sensitive values loaded from SecretsLoader.
+
+    Loading is handled by secret_field() which delegates to SecretsLoader.
+    The loader mode (file/env/custom) determines where secrets come from.
+
+    Secrets file location:
+        - Local/Dev: app/env_files/.secrets_{env}
+        - Production: /etc/eventually/.secrets_{env}
+    """
+
     model_config = SettingsConfigDict(env_file=ENV_FILES, env_prefix="DATABASE_", extra="ignore")
 
-    host: str = Field(default="localhost")
-    port: int
-    user: str | None = Field(default=None)
-    password: SecretStr | None = Field(default=None)
-    db_name: str = Field(default="eventually")
+    host: Secret[str] = secret_field("DATABASE_HOST", default="localhost")
+    db_name: Secret[str] = secret_field("DATABASE_NAME", default="eventually")
 
-    @model_validator(mode="before")
-    @classmethod
-    def _load_secrets(cls, data: dict[str, Any]) -> dict[str, Any]:
-        if not data.get("user"):
-            data["user"] = get_secret("DATABASE_USER", "database-user")
-        if not data.get("password"):
-            data["password"] = get_secret("DATABASE_PASSWORD", "database-password")
-        return data
+    port: Secret[int] = secret_field("DATABASE_PORT", default="5432")
+    user: Secret[str] = secret_field("DATABASE_USER", default="postgres")
+    password: Secret[str] | None = secret_field("DATABASE_PASSWORD")
 
 
 class DatabaseConfig(BaseSettings):
-    """Database configuration with connection pooling settings."""
+    """
+    Database connection pool configuration.
+
+    Non-sensitive settings loaded from .env files.
+    Credentials loaded separately via DatabaseCredentials.
+    """
 
     model_config = SettingsConfigDict(env_file=ENV_FILES, env_prefix="DATABASE_", extra="ignore")
 
@@ -195,16 +207,30 @@ class DatabaseConfig(BaseSettings):
     pool_pre_ping: bool = True
     echo: bool = False
 
+    # Cached credentials instance
+    _credentials: DatabaseCredentials | None = None
+
     @property
     def credentials(self) -> DatabaseCredentials:
-        return DatabaseCredentials()  # type: ignore[call-arg]
+        """
+        Get database credentials.
+
+        Loads from:
+            1. Environment variables (DATABASE_USER, etc.)
+            2. Secrets file (app/env_files/.secrets_local)
+            3. Defaults (for local development)
+        """
+        if self._credentials is None:
+            self._credentials = DatabaseCredentials()
+        return self._credentials
 
     @property
     def url(self) -> str:
         """Build database URL from credentials."""
         creds = self.credentials
         password = creds.password.get_secret_value() if creds.password else ""
-        return f"{self.driver}://{creds.user}:{quote_plus(password)}@{creds.host}:{creds.port}/{creds.db_name}"
+        print(password)
+        return f"{self.driver}://{creds.user.get_secret_value()}:{quote_plus(password)}@{creds.host.get_secret_value()}:{creds.port.get_secret_value()}/{creds.db_name.get_secret_value()}"
 
 
 # -----------------------------------------------------------------------------

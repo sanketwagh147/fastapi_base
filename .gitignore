@@ -20,6 +20,12 @@ env/
 .env
 .env.local
 
+# Secrets files (sensitive data)
+.secrets_*
+!.secrets_*.example
+**/env_files/.secrets_*
+!**/env_files/.secrets_*.example
+
 # IDE
 .vscode/
 .idea/
