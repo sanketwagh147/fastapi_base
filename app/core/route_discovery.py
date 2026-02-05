@@ -1,168 +1,196 @@
-"""
-Auto-discovery router system for FastAPI.
+"""FastAPI route auto-discovery.
 
-This module provides automatic route discovery and registration.
-Place route files in app/routes/ directory with a 'router' variable.
+Conventions:
+- Put route modules under `app/routes/`.
+- Each module exports a `router: APIRouter`.
+- Files starting with `_` are ignored.
 
-Configuration Priority:
-    1. APIRouter() constructor parameters (recommended)
-    2. ROUTER_CONFIG dict in the module (optional)
-    3. Auto-generated from file path (default)
-
-Example route file (app/routes/users.py):
-    from fastapi import APIRouter
-
-    router = APIRouter(
-        prefix="/api/v1/users",
-        tags=["users"]
-    )
-
-    @router.get("/")
-    async def list_users():
-        return {"users": []}
+Configuration:
+- Prefer setting `prefix`/`tags` in the `APIRouter(...)` constructor.
+- Optionally export `ROUTER_CONFIG` (a mapping) for additional `include_router(...)`
+  kwargs (e.g., `dependencies`, `responses`).
+- If a router has no `prefix`/`tags`, defaults are generated from the file path.
 """
 
 import importlib
+import logging
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, FastAPI
+
+logger = logging.getLogger(__name__)
 
 
 class RouterDiscoveryError(Exception):
     """Raised when router discovery fails."""
 
 
+_CONFIG_PREFIX_KEY = "prefix"
+_CONFIG_TAGS_KEY = "tags"
+
+
+def _iter_route_files(routes_dir: Path) -> list[Path]:
+    return sorted(
+        (
+            py_file
+            for py_file in routes_dir.rglob("*.py")
+            if py_file.is_file() and not py_file.name.startswith("_")
+        ),
+        key=lambda path: path.as_posix(),
+    )
+
+
+def _infer_module_path(routes_dir: Path, py_file: Path) -> str:
+    """Infer the importable module path for a route file.
+
+    Default expectation: routes live under an importable package like `app/routes/*`.
+    For example, `app/routes/v1/events.py` -> `app.routes.v1.events`.
+    """
+    routes_package = routes_dir.name
+    if routes_package == "routes":
+        base_package = routes_dir.parent.name
+        rel_module = ".".join(py_file.relative_to(routes_dir).with_suffix("").parts)
+        return f"{base_package}.routes.{rel_module}"
+
+    # Fallback: build from project root (parent of 'app')
+    # e.g., <root>/app/routes/v1/events.py -> app.routes.v1.events
+    project_root = routes_dir.parent.parent
+    relative_path = py_file.relative_to(project_root)
+    return ".".join(relative_path.with_suffix("").parts)
+
+
+def _load_router_config(module: Any, py_file: Path, module_path: str) -> dict[str, Any]:
+    if not hasattr(module, "ROUTER_CONFIG"):
+        return {}
+
+    router_config = module.ROUTER_CONFIG
+    if not isinstance(router_config, Mapping):
+        msg = (
+            f"Router file '{py_file.name}' has ROUTER_CONFIG but it's not a mapping.\n"
+            f"  File: {py_file}\n"
+            f"  Module: {module_path}\n"
+            f"  Type: {type(router_config).__name__}"
+        )
+        raise RouterDiscoveryError(msg)
+
+    return dict(router_config)
+
+
+def _normalize_tags(value: Any, py_file: Path, module_path: str) -> list[str]:
+    if isinstance(value, str) or not isinstance(value, Sequence):
+        msg = (
+            f"ROUTER_CONFIG['tags'] must be a sequence of strings.\n"
+            f"  File: {py_file}\n"
+            f"  Module: {module_path}\n"
+            f"  Type: {type(value).__name__}"
+        )
+        raise RouterDiscoveryError(msg)
+
+    tags = list(value)
+    if not all(isinstance(tag, str) for tag in tags):
+        msg = (
+            f"ROUTER_CONFIG['tags'] must contain only strings.\n"
+            f"  File: {py_file}\n"
+            f"  Module: {module_path}\n"
+            f"  Value: {tags}"
+        )
+        raise RouterDiscoveryError(msg)
+
+    return tags
+
+
 def discover_routers(routes_dir: Path) -> list[tuple[APIRouter, dict[str, Any]]]:
+    """Discover routers under a routes directory.
+
+    Returns a list of `(router, include_kwargs)` pairs.
+
+    Prefix/tags precedence:
+    1. Router's own `prefix`/`tags` (defined in `APIRouter(...)`)
+    2. `ROUTER_CONFIG['prefix'|'tags']` (only if router doesn't set them)
+    3. Defaults from file path (only if still missing)
     """
-    Auto-discover all routers in the routes directory.
+    routers: list[tuple[APIRouter, dict[str, Any]]] = []
 
-    Args:
-        routes_dir: Path to the routes directory
-
-    Returns:
-        List of (router, config) tuples where config contains prefix, tags, etc.
-
-    Raises:
-        RouterDiscoveryError: If any router file fails to load
-
-    Configuration Priority:
-        1. Router's own prefix/tags (from APIRouter constructor)
-        2. ROUTER_CONFIG dict (if present in module)
-        3. Auto-generated defaults (from file path)
-
-    Note:
-        Files starting with _ are ignored (e.g., _example.py, __init__.py)
-    """
-    routers = []
-
-    # Get all Python files in routes directory (excluding __init__.py and _*.py)
-    for py_file in routes_dir.rglob("*.py"):
-        # ALWAYS ignore files starting with underscore
-        if py_file.name.startswith("_"):
-            continue
-
-        # Convert file path to module path
-        # e.g., app/routes/v1/events.py -> app.routes.v1.events
-        # Need to go up to project root (parent of 'app' folder)
-        relative_path = py_file.relative_to(routes_dir.parent.parent)
-        module_path = str(relative_path.with_suffix("")).replace("/", ".")
+    for py_file in _iter_route_files(routes_dir):
+        module_path = _infer_module_path(routes_dir, py_file)
 
         try:
-            # Import the module
-            print(f"  Loading: {module_path}")
             module = importlib.import_module(module_path)
+        except Exception as e:
+            msg = (
+                f"Failed to import route module '{module_path}'.\n"
+                f"  File: {py_file}\n"
+                f"  Hint: Ensure the package is importable and dependencies are installed"
+            )
+            raise RouterDiscoveryError(msg) from e
 
-            # Check if module has a 'router' attribute
-            if not hasattr(module, "router"):
-                msg = (
-                    f"Router file '{py_file.name}' does not export a 'router' variable.\n"
-                    f"  File: {py_file}\n"
-                    f"  Module: {module_path}"
-                )
-                raise RouterDiscoveryError(msg)
+        if not hasattr(module, "router"):
+            msg = (
+                f"Router file '{py_file.name}' does not export a 'router' variable.\n"
+                f"  File: {py_file}\n"
+                f"  Module: {module_path}"
+            )
+            raise RouterDiscoveryError(msg)
 
-            router = module.router
+        router = module.router
 
-            # Validate it's an APIRouter instance
-            if not isinstance(router, APIRouter):
-                msg = (
-                    f"Router file '{py_file.name}' exports 'router' but it's not "
-                    f"an APIRouter instance.\n"
-                    f"  File: {py_file}\n"
-                    f"  Module: {module_path}\n"
-                    f"  Type: {type(router).__name__}"
-                )
-                raise RouterDiscoveryError(msg)
+        if not isinstance(router, APIRouter):
+            msg = (
+                f"Router file '{py_file.name}' exports 'router' but it's not an APIRouter "
+                f"instance.\n"
+                f"  File: {py_file}\n"
+                f"  Module: {module_path}\n"
+                f"  Type: {type(router).__name__}"
+            )
+            raise RouterDiscoveryError(msg)
 
-            # Start with router's built-in configuration
-            config = {}
+        router_config = _load_router_config(module, py_file, module_path)
 
-            # Extract prefix from router if set
-            if router.prefix:
-                config["prefix"] = router.prefix
+        # Build kwargs for include_router.
+        # Key idea: DO NOT pass prefix/tags if the router already defines them,
+        # otherwise they will be applied twice.
+        include_kwargs: dict[str, Any] = {
+            key: value
+            for key, value in router_config.items()
+            if key not in {_CONFIG_PREFIX_KEY, _CONFIG_TAGS_KEY}
+        }
 
-            # Extract tags from router if set
-            if router.tags:
-                config["tags"] = list(router.tags)
-
-            # Merge with ROUTER_CONFIG (overrides router settings if present)
-            if hasattr(module, "ROUTER_CONFIG"):
-                router_config = module.ROUTER_CONFIG
-                if not isinstance(router_config, dict):
+        if not router.prefix:
+            if _CONFIG_PREFIX_KEY in router_config:
+                prefix_value = router_config[_CONFIG_PREFIX_KEY]
+                if not isinstance(prefix_value, str):
                     msg = (
-                        f"Router file '{py_file.name}' has ROUTER_CONFIG but it's not a dict.\n"
+                        f"ROUTER_CONFIG['prefix'] must be a string.\n"
                         f"  File: {py_file}\n"
                         f"  Module: {module_path}\n"
-                        f"  Type: {type(router_config).__name__}"
+                        f"  Type: {type(prefix_value).__name__}"
                     )
                     raise RouterDiscoveryError(msg)
-                config.update(router_config)
-
-            # Apply defaults only if not configured
-            if "prefix" not in config:
-                # Auto-generate prefix from file path
-                # e.g., routes/v1/events.py -> /api/v1/events
+                include_kwargs[_CONFIG_PREFIX_KEY] = prefix_value
+            else:
                 route_path = py_file.relative_to(routes_dir).with_suffix("")
-                config["prefix"] = f"/api/{route_path}".replace("\\", "/")
+                include_kwargs[_CONFIG_PREFIX_KEY] = f"/api/{route_path.as_posix()}"
 
-            if "tags" not in config:
-                # Use filename as tag
-                config["tags"] = [py_file.stem]
+        if not router.tags:
+            if _CONFIG_TAGS_KEY in router_config:
+                include_kwargs[_CONFIG_TAGS_KEY] = _normalize_tags(
+                    router_config[_CONFIG_TAGS_KEY], py_file, module_path
+                )
+            else:
+                include_kwargs[_CONFIG_TAGS_KEY] = [py_file.stem]
 
-            routers.append((router, config))
-
-        except Exception as e:
-            print(f"  ❌ Error in {py_file.name}: {type(e).__name__}: {e}")
-            # Re-raise the original exception to see the full traceback
-            raise
+        routers.append((router, include_kwargs))
 
     return routers
 
 
 def register_routers(app: FastAPI, routes_dir: Path | None = None) -> None:
-    """
-    Discover and register all routers with the FastAPI app.
+    """Discover and register routers with a FastAPI app.
 
-    This function will raise an exception and fail the app startup if:
-    - Any router file fails to import
-    - Any router file doesn't export a 'router' variable
-    - Any router file exports an invalid router type
-
-    Files starting with _ are always ignored (e.g., _example.py).
-
-    Args:
-        app: FastAPI application instance
-        routes_dir: Optional path to routes directory.
-                   If None, uses app/routes relative to this file.
-
-    Raises:
-        RouterDiscoveryError: If any router file fails to load
-        FileNotFoundError: If routes directory doesn't exist
-
-    Call this once during app initialization in main.py:
-        from app.core.route_discovery import register_routers
-        register_routers(app)
+    Fails fast on startup if a route module can't be imported or doesn't export a
+    valid `router`.
     """
     if routes_dir is None:
         # Default: app/routes directory
@@ -176,22 +204,22 @@ def register_routers(app: FastAPI, routes_dir: Path | None = None) -> None:
         )
         raise FileNotFoundError(msg)
 
-    print(f"🔍 Discovering routes in: {routes_dir}")
+    logger.info("Discovering routes in: %s", routes_dir)
 
     routers = discover_routers(routes_dir)
 
     if not routers:
-        print("⚠️  No routers discovered (only files starting with _ found)")
+        logger.warning("No routers discovered (only files starting with _ found)")
         return
 
-    print(f"📦 Found {len(routers)} router(s)\n")
+    logger.info("Found %s router(s)", len(routers))
 
     for router, config in routers:
         try:
             app.include_router(router, **config)
-            prefix = config.get("prefix", "")
-            tags = config.get("tags", [])
-            print(f"  ✓ {prefix} (tags: {tags})")
+            effective_prefix = config.get("prefix") or router.prefix or ""
+            effective_tags = config.get("tags") or list(router.tags or [])
+            logger.info("  - %s (tags: %s)", effective_prefix, effective_tags)
         except Exception as e:
             msg = (
                 f"Failed to register router with prefix '{config.get('prefix', 'unknown')}'.\n"

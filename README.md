@@ -465,6 +465,12 @@ async def get_user(
 
 Routes are **auto-discovered** - no manual registration needed!
 
+Notes:
+
+- Prefer setting `prefix`/`tags` in `APIRouter(...)`.
+- Optionally export `ROUTER_CONFIG` for extra `include_router(...)` kwargs; if `prefix`/`tags` are missing, defaults are generated.
+
+
 ### Making External API Calls
 
 ```python

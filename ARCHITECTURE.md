@@ -346,12 +346,15 @@ Mounted at `/mnt/secrets/` and loaded automatically.
 Routes are automatically discovered from the `app/routes/` directory.
 
 **How it works:**
+
 1. Scans all Python files in `app/routes/`
 2. Imports modules and looks for `router` variable
 3. Registers routers with FastAPI application
-4. Respects configuration in router or ROUTER_CONFIG dict
+4. Uses `APIRouter(...)` config first; `ROUTER_CONFIG` can provide extra `include_router(...)` kwargs
+5. If `prefix`/`tags` aren't set on the router, defaults are generated from the file path
 
 **Benefits:**
+
 - No manual route registration
 - Convention over configuration
 - Reduced boilerplate
