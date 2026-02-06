@@ -1,0 +1,189 @@
+{
+	// ============================================================================
+	// PYTHON CONFIGURATION
+	// ============================================================================
+	"python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+	"python.envFile": "${workspaceFolder}/.env",
+
+	// ============================================================================
+	// RUFF - MODERN PYTHON LINTER & FORMATTER (replaces Black, isort, flake8)
+	// ============================================================================
+	"[python]": {
+		"editor.defaultFormatter": "charliermarsh.ruff",
+		"editor.formatOnSave": true,
+		"editor.codeActionsOnSave": {
+			"source.fixAll.ruff": "explicit",
+			"source.organizeImports.ruff": "explicit"
+		},
+		"editor.wordBasedSuggestions": "off"
+	},
+
+	// Ruff Linter Configuration
+	"ruff.lineLength": 100,
+	"ruff.lint.select": [
+		"E", // pycodestyle errors
+		"W", // pycodestyle warnings
+		"F", // pyflakes
+		"I", // isort
+		"N", // pep8-naming
+		"UP", // pyupgrade
+		"ANN", // flake8-annotations
+		"ASYNC", // flake8-async
+		"S", // flake8-bandit (security)
+		"BLE", // flake8-blind-except
+		"B", // flake8-bugbear
+		"A", // flake8-builtins
+		"C4", // flake8-comprehensions
+		"DTZ", // flake8-datetimez
+		"EM", // flake8-errmsg
+		"ISC", // flake8-implicit-str-concat
+		"ICN", // flake8-import-conventions
+		"G", // flake8-logging-format
+		"PIE", // flake8-pie
+		"T20", // flake8-print
+		"PT", // flake8-pytest-style
+		"Q", // flake8-quotes
+		"RSE", // flake8-raise
+		"RET", // flake8-return
+		"SIM", // flake8-simplify
+		"TID", // flake8-tidy-imports
+		"ARG", // flake8-unused-arguments
+		"PTH", // flake8-use-pathlib
+		"ERA", // eradicate
+		"PD", // pandas-vet
+		"PGH", // pygrep-hooks
+		"PL", // pylint
+		"TRY", // tryceratops
+		"FLY", // flynt
+		"PERF", // perflint
+		"RUF" // ruff-specific rules
+	],
+	"ruff.lint.ignore": [
+		"ANN101", // Missing type annotation for self
+		"ANN102", // Missing type annotation for cls
+		"ANN401", // Dynamically typed Any
+		"TRY003", // Avoid specifying long messages outside exception class
+		"PLR0913", // Too many arguments
+		"S101" // Use of assert
+	],
+	// ============================================================================
+	// PYLANCE - MICROSOFT'S PYTHON LANGUAGE SERVER
+	// ============================================================================
+	"python.analysis.typeCheckingMode": "standard",
+	"python.analysis.autoImportCompletions": true,
+	"python.analysis.autoFormatStrings": true,
+	"python.analysis.completeFunctionParens": true,
+	"python.analysis.importFormat": "absolute",
+	"python.analysis.inlayHints.functionReturnTypes": false,
+	"python.analysis.inlayHints.variableTypes": false,
+	"python.analysis.inlayHints.pytestParameters": false,
+	"python.analysis.diagnosticSeverityOverrides": {
+		"reportUnusedImport": "information",
+		"reportUnusedVariable": "information",
+		"reportGeneralTypeIssues": "warning"
+	},
+
+	// ============================================================================
+	// TESTING - PYTEST
+	// ============================================================================
+	"python.testing.pytestEnabled": true,
+	"python.testing.unittestEnabled": false,
+	"python.testing.pytestArgs": ["-v", "--strict-markers", "--tb=short"],
+	"python.testing.autoTestDiscoverOnSaveEnabled": true,
+
+	// ============================================================================
+	// EDITOR SETTINGS - PYTHON SPECIFIC
+	// ============================================================================
+	"editor.rulers": [88, 100],
+	"editor.tabSize": 4,
+	"editor.insertSpaces": true,
+	"editor.renderWhitespace": "boundary",
+	"editor.bracketPairColorization.enabled": true,
+	"editor.guides.bracketPairs": true,
+	"editor.suggestSelection": "first",
+	"editor.inlineSuggest.enabled": true,
+	"editor.quickSuggestions": {
+		"strings": true
+	},
+
+	// ============================================================================
+	// FILE MANAGEMENT
+	// ============================================================================
+	"files.trimTrailingWhitespace": true,
+	"files.insertFinalNewline": true,
+	"files.trimFinalNewlines": true,
+	"files.autoSave": "onFocusChange",
+	"files.eol": "\n",
+
+	// ============================================================================
+	// FILES TO EXCLUDE FROM EXPLORER
+	// ============================================================================
+	"files.exclude": {
+		"**/__pycache__": true,
+		"**/*.pyc": true,
+		"**/*.pyo": true,
+		"**/.pytest_cache": true,
+		"**/.ruff_cache": true,
+		"**/.mypy_cache": true,
+		"**/.coverage": true,
+		"**/*.egg-info": true,
+		"**/.eggs": true,
+		"**/htmlcov": true,
+		"**/.tox": true,
+		".venv": false,
+		"**/*.egg": true
+	},
+
+	// ============================================================================
+	// FILES TO EXCLUDE FROM SEARCH
+	// ============================================================================
+	"search.exclude": {
+		"**/__pycache__": true,
+		"**/*.pyc": true,
+		"**/*.pyo": true,
+		"**/.pytest_cache": true,
+		"**/.ruff_cache": true,
+		"**/.mypy_cache": true,
+		"**/.coverage": true,
+		"**/*.egg-info": true,
+		"**/.eggs": true,
+		"**/htmlcov": true,
+		"**/.tox": true,
+		".venv": true,
+		"node_modules": true,
+		"**/dist": true,
+		"**/build": true
+	},
+
+	// ============================================================================
+	// GIT & VERSION CONTROL
+	// ============================================================================
+	"git.autofetch": true,
+	"git.confirmSync": false,
+	"git.enableSmartCommit": true,
+
+	// ============================================================================
+	// TERMINAL
+	// ============================================================================
+	"terminal.integrated.scrollback": 10000,
+	"terminal.integrated.enableMultiLinePasteWarning": "auto",
+
+	// ============================================================================
+	// BREADCRUMBS & NAVIGATION
+	// ============================================================================
+	"breadcrumbs.enabled": true,
+	"breadcrumbs.symbolPath": "on",
+
+	// ============================================================================
+	// PROBLEMS PANEL
+	// ============================================================================
+	"problems.decorations.enabled": true,
+	"problems.showCurrentInStatus": true,
+
+	// ============================================================================
+	// INTELLISENSE & AUTOCOMPLETE
+	// ============================================================================
+	"editor.acceptSuggestionOnEnter": "smart",
+	"editor.parameterHints.enabled": true,
+	"editor.snippetSuggestions": "top"
+}

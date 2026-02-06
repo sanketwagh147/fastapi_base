@@ -1,0 +1,47 @@
+{
+  "recommendations": [
+    // ===== REQUIRED EXTENSIONS =====
+    // Python essentials (required)
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+    "ms-python.debugpy",
+
+    // Ruff - Fast Python linter and formatter (required)
+    "charliermarsh.ruff",
+
+    // API development (required)
+    "echoapi.echoapi-for-vscode",
+
+    // ===== RECOMMENDED EXTENSIONS =====
+    // Testing (recommended)
+    "littlefoxteam.vscode-python-test-adapter",
+
+    // Code quality and productivity (recommended)
+    "redhat.vscode-yaml",
+    "tamasfe.even-better-toml",
+
+    // Git (recommended)
+    "mhutchie.git-graph",
+    "github.vscode-pull-request-github",
+
+    // TODO management (recommended)
+    "gruntfuggly.todo-tree",
+    "wayou.vscode-todo-highlight",
+
+    // ===== OPTIONAL EXTENSIONS =====
+    // Uncomment if you want these:
+    "github.copilot",
+    "github.copilot-chat",
+    // "eamodio.gitlens",
+    // "ms-azuretools.vscode-docker"
+  ],
+
+  // Extensions to disable in this workspace
+  "unwantedRecommendations": [
+    // Disable these if you have them globally installed
+    "esbenp.prettier-vscode",  // Ruff handles Python formatting
+    "ms-python.flake8",  // Using Ruff instead
+    "ms-python.pylint",  // Using Ruff instead
+    "ms-python.black-formatter"  // Using Ruff instead
+  ]
+}
