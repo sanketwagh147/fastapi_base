@@ -31,6 +31,8 @@ dependencies = [
     "pydantic-settings>=2.1.0",   # Environment-based configuration
     "httpx>=0.26.0",              # Async HTTP client with HTTP/2 support
     "asyncpg>=0.31.0",            # Fast PostgreSQL async driver
+    "structlog>=24.0.0",          # Structured logging with context
+    "asgi-correlation-id>=4.3.0", # Request ID correlation middleware
 ]
 
 # Optional dependency groups for different use cases
@@ -56,6 +58,7 @@ dev = [
     "pytest-asyncio>=0.21.0",
     "ruff>=0.1.0",
     "mypy>=1.8.0",
+    "rich>=13.0.0",  # Pretty console output for development
 ]
 
 # Install all optional dependencies

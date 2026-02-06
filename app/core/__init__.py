@@ -9,6 +9,7 @@ from .base_repository import BaseRepository
 from .database import AsyncDBPool
 from .dependencies import get_db
 from .lifespan import app_lifespan
+from .logging_config import setup_logging
 from .route_discovery import RouterDiscoveryError, discover_routers, register_routers
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     "discover_routers",
     "get_db",
     "register_routers",
+    "setup_logging",
 ]

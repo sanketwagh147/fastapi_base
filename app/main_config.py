@@ -229,7 +229,6 @@ class DatabaseConfig(BaseSettings):
         """Build database URL from credentials."""
         creds = self.credentials
         password = creds.password.get_secret_value() if creds.password else ""
-        print(password)
         return f"{self.driver}://{creds.user.get_secret_value()}:{quote_plus(password)}@{creds.host.get_secret_value()}:{creds.port.get_secret_value()}/{creds.db_name.get_secret_value()}"
 
 
@@ -268,12 +267,22 @@ class CORSConfig(BaseSettings):
 
 
 class LoggingConfig(BaseSettings):
+    """Structured logging configuration with console/JSON output.
+
+    Supports:
+    - console: Pretty colored output for development
+    - json: Machine-parseable logs for production
+    """
+
     model_config = SettingsConfigDict(env_file=ENV_FILES, env_prefix="LOG_", extra="ignore")
 
-    level: str = "INFO"
-    format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    json_format: bool = False
-    file_path: str | None = None
+    log_level: str = "INFO"
+    log_format: str = "console"  # "console" or "json"
+
+    # Library-specific log levels (reduce noise from third-party libs)
+    log_level_sqlalchemy: str = "WARNING"
+    log_level_httpx: str = "WARNING"
+    log_level_uvicorn_access: str = "INFO"
 
 
 # -----------------------------------------------------------------------------
