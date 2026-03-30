@@ -1,11 +1,10 @@
-"""Health check endpoints for monitoring."""
-from fastapi import APIRouter
-from datetime import datetime
+"""Health check endpoints."""
 
-# Everything in one place - clean and simple!
+from fastapi import APIRouter
+
 router = APIRouter(
     prefix="/api",
-    tags=["health",],
+    tags=["health"],
 )
 
 
@@ -15,11 +14,11 @@ async def root():
     return {
         "message": "Eventually API",
         "version": "1.0.0",
-        "docs": "/docs"
+        "docs": "/docs",
     }
 
 
 @router.get("/health")
 async def health_check():
-    """Health check endpoint."""
+    """Health check endpoint (public)."""
     return {"status": "healthy"}

@@ -410,5 +410,5 @@ logging_config = get_logging_config()
 
 # Optional instances (uncomment as needed)
 # redis_config = get_redis_config()
-# jwt_config = get_jwt_config()
+jwt_config = get_jwt_config()
 # api_config = get_api_config()
