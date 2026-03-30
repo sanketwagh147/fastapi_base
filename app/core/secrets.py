@@ -234,7 +234,9 @@ def get_secrets_loader() -> SecretsLoader:
             base_path=base_path,
         )
 
-    return _state["loader"]
+    loader = _state["loader"]
+    assert loader is not None
+    return loader
 
 
 def get_secret(name: str, default: str | None = None) -> str:

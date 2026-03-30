@@ -4,17 +4,17 @@ This file demonstrates how to use the centralized logging system
 with request correlation IDs and structured output.
 """
 
-import logging
+import structlog
 
 # =============================================================================
 # Basic Usage - Works everywhere in your app
 # =============================================================================
 
-# Get a logger for this module
-logger = logging.getLogger(__name__)
+# Get a structlog logger for this module
+logger = structlog.get_logger(__name__)
 
 
-def example_basic_logging():
+def example_basic_logging() -> None:
     """Basic logging with structured context."""
     # Simple log message
     logger.info("User logged in")
@@ -56,10 +56,10 @@ async def get_user(user_id: int):
 # =============================================================================
 
 # Audit logger for security/compliance
-audit_logger = logging.getLogger("myapp.audit")
+audit_logger = structlog.get_logger("myapp.audit")
 
 
-def log_payment(user_id: int, amount: float):
+def log_payment(user_id: int, amount: float) -> None:
     """Log payment events to audit trail."""
     audit_logger.info(
         "payment_processed",
@@ -71,10 +71,10 @@ def log_payment(user_id: int, amount: float):
 
 
 # Performance/metrics logger
-metrics_logger = logging.getLogger("myapp.metrics")
+metrics_logger = structlog.get_logger("myapp.metrics")
 
 
-def log_api_latency(endpoint: str, duration_ms: float):
+def log_api_latency(endpoint: str, duration_ms: float) -> None:
     """Log API performance metrics."""
     metrics_logger.info(
         "api_latency",

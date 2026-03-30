@@ -28,7 +28,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any, Generic, TypeVar
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -108,7 +108,7 @@ class BaseRepository(Generic[ModelType, IDType], ABC):
         Returns:
             Instance or None
         """
-        result = await self.session.execute(select(self.model).where(self.model.id == id))
+        result = await self.session.execute(select(self.model).where(self.model.id == id))  # type: ignore[attr-defined]
         return result.scalar_one_or_none()
 
     async def get_by(self, **filters: Any) -> ModelType | None:
@@ -187,11 +187,11 @@ class BaseRepository(Generic[ModelType, IDType], ABC):
         """
         try:
             result = await self.session.execute(
-                update(self.model).where(self.model.id == id).values(**kwargs)
+                update(self.model).where(self.model.id == id).values(**kwargs)  # type: ignore[attr-defined]
             )
             await self.session.flush()
 
-            if refresh and result.rowcount > 0:
+            if refresh and result.rowcount > 0:  # type: ignore[attr-defined]
                 return await self.get_by_id(id)
 
         except IntegrityError:
@@ -215,7 +215,7 @@ class BaseRepository(Generic[ModelType, IDType], ABC):
         """
         try:
             result = await self.session.execute(
-                update(self.model).where(self.model.id.in_(ids)).values(**kwargs)
+                update(self.model).where(self.model.id.in_(ids)).values(**kwargs)  # type: ignore[attr-defined]
             )
             await self.session.flush()
         except IntegrityError:
@@ -225,7 +225,7 @@ class BaseRepository(Generic[ModelType, IDType], ABC):
             await self.session.rollback()
             raise
         else:
-            return result.rowcount
+            return result.rowcount  # type: ignore[attr-defined, no-any-return]
 
     async def delete(self, id: IDType) -> bool:
         """Delete record by ID.
@@ -237,7 +237,7 @@ class BaseRepository(Generic[ModelType, IDType], ABC):
             True if deleted
         """
         try:
-            result = await self.session.execute(delete(self.model).where(self.model.id == id))
+            result = await self.session.execute(delete(self.model).where(self.model.id == id))  # type: ignore[attr-defined]
             await self.session.flush()
 
         except IntegrityError:
@@ -247,7 +247,7 @@ class BaseRepository(Generic[ModelType, IDType], ABC):
             await self.session.rollback()
             raise
         else:
-            return result.rowcount > 0
+            return result.rowcount > 0  # type: ignore[attr-defined, no-any-return]
 
     async def delete_many(self, ids: Sequence[IDType]) -> int:
         """Delete multiple records.
@@ -259,7 +259,7 @@ class BaseRepository(Generic[ModelType, IDType], ABC):
             Number deleted
         """
         try:
-            result = await self.session.execute(delete(self.model).where(self.model.id.in_(ids)))
+            result = await self.session.execute(delete(self.model).where(self.model.id.in_(ids)))  # type: ignore[attr-defined]
             await self.session.flush()
         except IntegrityError:
             await self.session.rollback()
@@ -268,7 +268,7 @@ class BaseRepository(Generic[ModelType, IDType], ABC):
             await self.session.rollback()
             raise
         else:
-            return result.rowcount
+            return result.rowcount  # type: ignore[attr-defined, no-any-return]
 
     async def soft_delete(self, id: IDType) -> bool:
         """Soft delete by setting deleted_at timestamp.
@@ -289,14 +289,14 @@ class BaseRepository(Generic[ModelType, IDType], ABC):
                 raise AttributeError(msg)
 
             result = await self.session.execute(
-                update(self.model).where(self.model.id == id).values(deleted_at=datetime.now(UTC))
+                update(self.model).where(self.model.id == id).values(deleted_at=datetime.now(UTC))  # type: ignore[attr-defined]
             )
             await self.session.flush()
         except SQLAlchemyError:
             await self.session.rollback()
             raise
         else:
-            return result.rowcount > 0
+            return result.rowcount > 0  # type: ignore[attr-defined, no-any-return]
 
     async def exists(self, id_: IDType) -> bool:
         """Check if record exists.
@@ -307,7 +307,7 @@ class BaseRepository(Generic[ModelType, IDType], ABC):
         Returns:
             True if exists
         """
-        result = await self.session.execute(select(self.model.id).where(self.model.id == id_))
+        result = await self.session.execute(select(self.model.id).where(self.model.id == id_))  # type: ignore[attr-defined]
         return result.scalar_one_or_none() is not None
 
     async def count(self, **filters: Any) -> int:
@@ -319,13 +319,13 @@ class BaseRepository(Generic[ModelType, IDType], ABC):
         Returns:
             Total count
         """
-        query = select(func.count()).select_from(self.model)
+        query = select(func.count()).select_from(self.model)  # type: ignore[arg-type]
 
         for field, value in filters.items():
             query = query.where(getattr(self.model, field) == value)
 
         result = await self.session.execute(query)
-        return result.scalar_one()
+        return result.scalar_one()  # type: ignore[return-value]
 
     async def commit(self) -> None:
         """Commit current transaction."""

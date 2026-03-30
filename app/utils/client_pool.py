@@ -1,7 +1,8 @@
-from typing import Optional, Dict, Any
-from pydantic import BaseModel, Field
+from typing import Any
+
 import httpx
 from fastapi import FastAPI
+from pydantic import BaseModel, Field
 
 
 class TimeoutConfig(BaseModel):
@@ -20,12 +21,8 @@ class TimeoutConfig(BaseModel):
 class PoolConfig(BaseModel):
     """Connection pool configuration."""
 
-    max_connections: int = Field(
-        default=100, description="Maximum number of connections"
-    )
-    max_keepalive: int = Field(
-        default=20, description="Maximum number of idle connections"
-    )
+    max_connections: int = Field(default=100, description="Maximum number of connections")
+    max_keepalive: int = Field(default=20, description="Maximum number of idle connections")
     keepalive_expiry: float = Field(
         default=30.0, description="Time in seconds to keep idle connections"
     )
@@ -49,9 +46,7 @@ class ClientConfig(BaseModel):
     retry: RetryConfig = Field(default_factory=RetryConfig)
     http2: bool = Field(default=True, description="Enable HTTP/2 support")
     verify_ssl: bool = Field(default=True, description="Verify SSL certificates")
-    follow_redirects: bool = Field(
-        default=True, description="Automatically follow redirects"
-    )
+    follow_redirects: bool = Field(default=True, description="Automatically follow redirects")
 
 
 class HttpxRestClientPool:
@@ -61,11 +56,11 @@ class HttpxRestClientPool:
     and lifecycle management integrated with FastAPI.
     """
 
-    _client: Optional[httpx.AsyncClient] = None
+    _client: httpx.AsyncClient | None = None
     _config: ClientConfig = ClientConfig()
 
     @classmethod
-    def configure(cls, config: Optional[ClientConfig] = None) -> None:
+    def configure(cls, config: ClientConfig | None = None) -> None:
         """Configure the client pool with custom settings."""
         if config is not None:
             cls._config = config
@@ -74,16 +69,16 @@ class HttpxRestClientPool:
     def get_client(cls) -> httpx.AsyncClient:
         """Get the shared HTTP client instance"""
         if cls._client is None:
-            transport = httpx.AsyncHTTPTransport(
-                # Retry configuration
-                retries=cls._config.retry.max_retries,
-                retry_backoff_factor=cls._config.retry.backoff_factor,
-                # Connection pooling
+            limits = httpx.Limits(
                 max_connections=cls._config.pool.max_connections,
                 max_keepalive_connections=cls._config.pool.max_keepalive,
                 keepalive_expiry=cls._config.pool.keepalive_expiry,
-                # HTTP/2 support
+            )
+
+            transport = httpx.AsyncHTTPTransport(
+                retries=cls._config.retry.max_retries,
                 http2=cls._config.http2,
+                limits=limits,
             )
 
             cls._client = httpx.AsyncClient(
@@ -102,7 +97,7 @@ class HttpxRestClientPool:
             cls._client = None
 
 
-def setup_http_pool(app: FastAPI, config: Optional[ClientConfig] = None) -> None:
+def setup_http_pool(app: FastAPI, config: ClientConfig | None = None) -> None:
     """Configure HTTP pool lifecycle hooks for a FastAPI application.
 
     Args:
@@ -114,17 +109,17 @@ def setup_http_pool(app: FastAPI, config: Optional[ClientConfig] = None) -> None
         HttpxRestClientPool.configure(config)
 
     @app.on_event("startup")
-    async def initialize_http_pool():
+    async def initialize_http_pool() -> None:
         # Initialize the client pool on startup
         HttpxRestClientPool.get_client()
 
     @app.on_event("shutdown")
-    async def cleanup_http_pool():
+    async def cleanup_http_pool() -> None:
         # Ensure all connections are properly closed
         await HttpxRestClientPool.dispose()
 
 
-async def fetch_url(url: str, method: str = "GET", **kwargs: Any) -> Dict[str, Any]:
+async def fetch_url(url: str, method: str = "GET", **kwargs: Any) -> dict[str, Any]:
     """Make an HTTP request using the shared connection pool.
 
     The client is configured with automatic retries using exponential backoff.

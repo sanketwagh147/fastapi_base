@@ -14,6 +14,7 @@ Usage:
 import importlib.util
 import logging
 import sys
+from collections.abc import MutableMapping
 from typing import Any
 
 import structlog
@@ -21,8 +22,12 @@ from asgi_correlation_id import correlation_id
 
 from app.main_config import logging_config
 
+Processor = structlog.types.Processor
 
-def get_request_id(_logger: Any, _method_name: str, event_dict: dict) -> dict:
+
+def get_request_id(
+    _logger: Any, _method_name: str, event_dict: MutableMapping[str, Any]
+) -> MutableMapping[str, Any]:
     """Add request_id from asgi-correlation-id contextvar to log events."""
     request_id = correlation_id.get()
     if request_id:
@@ -45,7 +50,7 @@ def setup_logging() -> None:
     log_level = logging_config.log_level.upper()
 
     # Shared processors for both stdlib and structlog
-    shared_processors = [
+    shared_processors: list[Processor] = [
         structlog.stdlib.add_log_level,
         structlog.stdlib.add_logger_name,
         get_request_id,  # Inject request_id from contextvar
@@ -54,6 +59,7 @@ def setup_logging() -> None:
     ]
 
     # Choose renderer based on environment
+    renderer: Processor
     if logging_config.log_format == "json":
         # Production: JSON to stdout
         renderer = structlog.processors.JSONRenderer()
