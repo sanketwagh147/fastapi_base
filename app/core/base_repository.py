@@ -28,7 +28,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any, Generic, TypeVar
 
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -140,9 +140,9 @@ class BaseRepository(Generic[ModelType, IDType], ABC):
         """
         query = select(self.model)
 
-        if offset:
+        if offset is not None:
             query = query.offset(offset)
-        if limit:
+        if limit is not None:
             query = query.limit(limit)
 
         result = await self.session.execute(query)
@@ -166,9 +166,9 @@ class BaseRepository(Generic[ModelType, IDType], ABC):
         for field, value in filters.items():
             query = query.where(getattr(self.model, field) == value)
 
-        if offset:
+        if offset is not None:
             query = query.offset(offset)
-        if limit:
+        if limit is not None:
             query = query.limit(limit)
 
         result = await self.session.execute(query)

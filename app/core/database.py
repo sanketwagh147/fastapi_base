@@ -99,16 +99,3 @@ class AsyncDBPool:
             except Exception:
                 await session.rollback()
                 raise
-
-
-async def get_db() -> AsyncIterator[AsyncSession]:
-    """FastAPI dependency for database session.
-
-    Usage:
-        @app.get("/events")
-        async def get_events(db: AsyncSession = Depends(get_db)):
-            result = await db.execute(select(Event))
-            return result.scalars().all()
-    """
-    async with AsyncDBPool.get_session() as session:
-        yield session

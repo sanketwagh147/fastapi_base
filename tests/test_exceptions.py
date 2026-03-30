@@ -242,7 +242,7 @@ def test_not_found_error_default_message(app: FastAPI, client: TestClient) -> No
 # =============================================================================
 
 
-def test_generic_exception_handler(app: FastAPI, client: TestClient) -> None:
+def test_generic_exception_handler(app: FastAPI) -> None:
     """Test generic exception handler for unexpected errors."""
 
     @app.get("/test-unexpected")
@@ -250,7 +250,8 @@ def test_generic_exception_handler(app: FastAPI, client: TestClient) -> None:
         msg = "Unexpected error"
         raise ValueError(msg)
 
-    response = client.get("/test-unexpected")
+    with TestClient(app, raise_server_exceptions=False) as c:
+        response = c.get("/test-unexpected")
 
     assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
     data = response.json()
@@ -259,14 +260,15 @@ def test_generic_exception_handler(app: FastAPI, client: TestClient) -> None:
     assert "path" in data
 
 
-def test_zero_division_error_handling(app: FastAPI, client: TestClient) -> None:
+def test_zero_division_error_handling(app: FastAPI) -> None:
     """Test handling of ZeroDivisionError."""
 
     @app.get("/test-zero-division")
     async def route():
         return 1 / 0
 
-    response = client.get("/test-zero-division")
+    with TestClient(app, raise_server_exceptions=False) as c:
+        response = c.get("/test-zero-division")
 
     assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
     data = response.json()

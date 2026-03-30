@@ -16,6 +16,8 @@ Architecture:
     - All I/O operations use async/await for optimal concurrency
 """
 
+import uuid
+
 from asgi_correlation_id import CorrelationIdMiddleware
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -40,17 +42,17 @@ app = FastAPI(
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=cors_config.allow_origins,
+    allow_origins=cors_config.origins_list,
     allow_credentials=cors_config.allow_credentials,
-    allow_methods=cors_config.allow_methods,
-    allow_headers=cors_config.allow_headers,
+    allow_methods=cors_config.methods_list,
+    allow_headers=cors_config.headers_list,
 )
 
 # Add correlation ID middleware (adds request_id to context)
 app.add_middleware(
     CorrelationIdMiddleware,
     header_name="X-Request-ID",
-    generator=lambda: __import__("uuid").uuid4().hex[:16],
+    generator=lambda: uuid.uuid4().hex[:16],
     validator=None,
     transformer=lambda x: x,
 )

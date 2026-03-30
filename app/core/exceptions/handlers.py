@@ -69,12 +69,11 @@ async def integrity_error_handler(request: Request, exc: IntegrityError) -> JSON
     Returns:
         JSON response with constraint violation details
     """
-    logger.error(f"Database integrity error: {exc}", exc_info=True)
+    logger.error("Database integrity error: %s", exc, exc_info=True)
 
     error_response = ErrorResponse(
         error_code="IntegrityError",
         message="Database constraint violation",
-        detail={"database_error": str(exc.orig) if hasattr(exc, "orig") else str(exc)},
         path=request.url.path,
     )
 
@@ -94,12 +93,11 @@ async def generic_exception_handler(request: Request, exc: Exception) -> JSONRes
     Returns:
         JSON response with generic error message
     """
-    logger.error(f"Unexpected error: {exc}", exc_info=True)
+    logger.error("Unexpected error: %s", exc, exc_info=True)
 
     # Convert to internal server exception
     internal_exc = InternalServerError(
         message="An unexpected error occurred",
-        detail={"error": str(exc)} if logger.level == logging.DEBUG else None,
     )
 
     error_response = internal_exc.to_error_response(path=request.url.path)

@@ -112,11 +112,11 @@ class HttpxRestClientPool:
                     transport = httpx.AsyncHTTPTransport(
                         retries=cls._config.retry.max_retries,
                         http2=cls._config.http2,
+                        limits=limits,
                     )
 
                     cls._client = httpx.AsyncClient(
                         transport=transport,
-                        limits=limits,
                         timeout=cls._config.timeout.to_httpx_timeout(),
                         verify=cls._config.verify_ssl,
                         follow_redirects=cls._config.follow_redirects,
