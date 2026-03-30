@@ -28,7 +28,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any, Generic, TypeVar
 
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import asc, delete, desc, func, select, update
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -127,18 +127,28 @@ class BaseRepository(Generic[ModelType, IDType], ABC):
         return result.scalar_one_or_none()
 
     async def get_all(
-        self, limit: int | None = None, offset: int | None = None
+        self,
+        limit: int | None = None,
+        offset: int | None = None,
+        order_by: str | None = None,
+        order_desc: bool = False,
     ) -> Sequence[ModelType]:
         """Get all records.
 
         Args:
             limit: Max records
             offset: Records to skip
+            order_by: Column name to sort by
+            order_desc: Sort descending if True
 
         Returns:
             List of instances
         """
         query = select(self.model)
+
+        if order_by is not None:
+            col = getattr(self.model, order_by)
+            query = query.order_by(desc(col) if order_desc else asc(col))
 
         if offset is not None:
             query = query.offset(offset)
@@ -149,13 +159,20 @@ class BaseRepository(Generic[ModelType, IDType], ABC):
         return result.scalars().all()
 
     async def filter(
-        self, limit: int | None = None, offset: int | None = None, **filters: Any
+        self,
+        limit: int | None = None,
+        offset: int | None = None,
+        order_by: str | None = None,
+        order_desc: bool = False,
+        **filters: Any,
     ) -> Sequence[ModelType]:
         """Get records by filters.
 
         Args:
             limit: Max records
             offset: Records to skip
+            order_by: Column name to sort by
+            order_desc: Sort descending if True
             **filters: Field-value pairs
 
         Returns:
@@ -165,6 +182,10 @@ class BaseRepository(Generic[ModelType, IDType], ABC):
 
         for field, value in filters.items():
             query = query.where(getattr(self.model, field) == value)
+
+        if order_by is not None:
+            col = getattr(self.model, order_by)
+            query = query.order_by(desc(col) if order_desc else asc(col))
 
         if offset is not None:
             query = query.offset(offset)
@@ -338,3 +359,40 @@ class BaseRepository(Generic[ModelType, IDType], ABC):
     async def rollback(self) -> None:
         """Rollback current transaction."""
         await self.session.rollback()
+
+    async def get_page(
+        self,
+        page: int = 1,
+        size: int = 20,
+        order_by: str | None = None,
+        order_desc: bool = False,
+        **filters: Any,
+    ) -> tuple[Sequence[ModelType], int]:
+        """Get a page of results with total count.
+
+        Designed to pair with ``PaginatedResponse.build()``:
+
+            items, total = await repo.get_page(page=page, size=size, is_active=True)
+            return PaginatedResponse.build(items=items, total=total, page=page, size=size)
+
+        Args:
+            page: 1-based page number
+            size: Items per page
+            order_by: Column name to sort by
+            order_desc: Sort descending if True
+            **filters: Field-value pairs
+
+        Returns:
+            Tuple of (items, total_count)
+        """
+        total = await self.count(**filters)
+        offset = (page - 1) * size
+
+        items = await self.filter(
+            limit=size,
+            offset=offset,
+            order_by=order_by,
+            order_desc=order_desc,
+            **filters,
+        )
+        return items, total

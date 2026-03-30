@@ -1,39 +1,53 @@
-"""
-Base declarative class and mixins for SQLAlchemy models.
+"""Base declarative class and mixins for SQLAlchemy models.
 
 This module contains only the domain model base class and common mixins.
-Database connection logic has been moved to app.core.database
+Database connection logic lives in app.core.database.
 """
 
 from datetime import UTC, datetime
 
-from sqlalchemy import Column, DateTime
-from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy import DateTime
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
 def utc_now() -> datetime:
-    """Returns current UTC time with timezone awareness.
-
-    Replaces deprecated datetime.utcnow()
-    """
+    """Return current UTC time with timezone awareness."""
     return datetime.now(UTC)
 
 
 class Base(DeclarativeBase):
-    """Base class for all SQLAlchemy ORM models.
-
-    All domain models (Event, Image, etc.) should inherit from this class.
-    """
+    """Base class for all SQLAlchemy ORM models."""
 
 
 class TimestampMixin:
-    """Mixin that adds created_at and updated_at timestamp columns to models.
+    """Adds created_at / updated_at columns.
 
     Usage:
         class MyModel(Base, TimestampMixin):
-            __tablename__ = 'my_model'
-            id = Column(Integer, primary_key=True)
+            __tablename__ = "my_model"
+            id: Mapped[int] = mapped_column(primary_key=True)
     """
 
-    created_at = Column(DateTime, default=utc_now, nullable=False)
-    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
+    )
+
+
+class SoftDeleteMixin:
+    """Adds deleted_at column for soft-delete support.
+
+    Use with BaseRepository.soft_delete() to mark records as deleted
+    without removing them from the database.
+
+    Usage:
+        class MyModel(Base, TimestampMixin, SoftDeleteMixin):
+            __tablename__ = "my_model"
+            id: Mapped[int] = mapped_column(primary_key=True)
+    """
+
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), default=None, nullable=True
+    )

@@ -4,6 +4,11 @@ __pycache__/
 *$py.class
 *.so
 .Python
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
 
 # Virtual environments
 .venv/
@@ -33,21 +38,28 @@ env/
 *.swo
 *~
 
-# Testing
+# Testing & Type Checking
 .pytest_cache/
 .coverage
 htmlcov/
-
-# Distribution / packaging
-dist/
-build/
-*.egg-info/
+.mypy_cache/
+.ruff_cache/
 
 # Logs
 *.log
+logs/
 
 # OS
 .DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.override.yml
+.docker/
+
+# UV / pip
+.uv/
+pip-log.txt
 Thumbs.db
 
 # Deprecated/Old files

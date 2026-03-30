@@ -1,4 +1,4 @@
-"""Enumeration definitions for the"""
+"""Enumeration definitions for the application."""
 
 from enum import Enum
 

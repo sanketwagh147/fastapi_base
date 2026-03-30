@@ -1,6 +1,14 @@
-"""
-SQLAlchemy models for the Eventually event management application.
-"""
-from .base import Base
+"""SQLAlchemy models package.
 
-__all__ = ['Base']
+Define domain models here, inheriting from Base and optional mixins:
+
+    from app.models.base import Base, TimestampMixin
+
+    class User(Base, TimestampMixin):
+        __tablename__ = "users"
+        ...
+"""
+
+from .base import Base, SoftDeleteMixin, TimestampMixin
+
+__all__ = ["Base", "SoftDeleteMixin", "TimestampMixin"]
