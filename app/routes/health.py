@@ -3,7 +3,11 @@
 import logging
 
 from fastapi import APIRouter
+from fastapi.responses import JSONResponse
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 
+from app.core.database import AsyncDBPool
 from app.main_config import fastapi_config
 
 logger = logging.getLogger(__name__)
@@ -15,7 +19,7 @@ router = APIRouter(
 
 
 @router.get("/")
-async def root():
+async def root() -> dict[str, str | None]:
     """API root endpoint."""
     return {
         "message": fastapi_config.title,
@@ -25,13 +29,13 @@ async def root():
 
 
 @router.get("/health")
-async def health_check():
+async def health_check() -> dict[str, str]:
     """Liveness probe — confirms the process is running."""
     return {"status": "healthy"}
 
 
 @router.get("/health/ready")
-async def readiness_check():
+async def readiness_check() -> JSONResponse:
     """Readiness probe — confirms the app can serve traffic.
 
     Checks database connectivity. Add more checks (Redis, external APIs)
@@ -41,21 +45,15 @@ async def readiness_check():
 
     # Database check
     try:
-        from sqlalchemy import text
-
-        from app.core.database import AsyncDBPool
-
         async with AsyncDBPool.get_session() as session:
-            await session.execute(text(\"SELECT 1\"))
+            await session.execute(text("SELECT 1"))
         checks["database"] = "ok"
-    except Exception as exc:
+    except (RuntimeError, SQLAlchemyError) as exc:
         logger.warning("Readiness: database check failed: %s", exc)
         checks["database"] = "unavailable"
 
     overall = "ready" if all(v == "ok" for v in checks.values()) else "not_ready"
     status_code = 200 if overall == "ready" else 503
-
-    from fastapi.responses import JSONResponse
 
     return JSONResponse(
         status_code=status_code,

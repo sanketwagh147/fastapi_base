@@ -3,7 +3,7 @@
 import pytest
 from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from app.core.exceptions import (
     BadRequestError,
@@ -63,7 +63,7 @@ def test_error_response_model_defaults() -> None:
 
 def test_error_response_validation_error() -> None:
     """Test ErrorResponse validation for invalid detail type."""
-    with pytest.raises(Exception):  # Pydantic ValidationError
+    with pytest.raises(ValidationError):
         ErrorResponse(
             error_code="TEST",
             message="Test",
@@ -293,7 +293,7 @@ def test_validation_error_handler(app: FastAPI, client: TestClient) -> None:
 
     response = client.post("/test-validation", json={"name": "John", "age": "invalid"})
 
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
     data = response.json()
     assert data["error_code"] == "ValidationError"
     assert data["message"] == "Request validation failed"

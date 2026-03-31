@@ -13,11 +13,12 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 WORKDIR /build
 
-# Copy dependency files first (better layer caching)
-COPY pyproject.toml ./
+# Copy package metadata first (better layer caching)
+COPY pyproject.toml README.md ./
+COPY app/ ./app/
 
-# Install production dependencies only
-RUN uv pip install --system --no-cache -r pyproject.toml
+# Install the application and its runtime dependencies
+RUN uv pip install --system --no-cache .
 
 # ---------------------------------------------------------------------------
 # Stage 2: Production image
@@ -47,9 +48,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')" || exit 1
 
-# Run with uvicorn — configure workers/host/port via env vars
-CMD ["uvicorn", "app.main:app", \
-     "--host", "0.0.0.0", \
-     "--port", "8000", \
-     "--workers", "1", \
-     "--log-config", "None"]
+# Run with the application's programmatic entrypoint so custom logging is preserved
+CMD ["python", "-m", "app.main"]

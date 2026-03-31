@@ -20,7 +20,7 @@ dev: ## Install all dependencies (including dev tools)
 # ---------------------------------------------------------------------------
 
 run: ## Start dev server with auto-reload
-	uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 --log-config None
+	uv run python -m app.main
 
 test: ## Run tests
 	pytest

@@ -13,9 +13,14 @@ _CURRENT_DIR = Path(__file__).parent
 _ENV_FILES_DIR = _CURRENT_DIR.parent / "env_files"
 
 
+def _normalize_environment_value(value: str | None) -> str:
+    """Normalize environment input from env vars or overrides."""
+    return (value or Environment.LOCAL.value).strip().lower()
+
+
 def get_current_environment() -> Environment:
     """Get current environment from ENV variable (defaults to LOCAL)."""
-    env_value = os.getenv("ENV", Environment.LOCAL.value)
+    env_value = _normalize_environment_value(os.getenv("ENV", Environment.LOCAL.value))
     try:
         return Environment(env_value)
     except ValueError:
@@ -23,8 +28,8 @@ def get_current_environment() -> Environment:
 
 
 def get_env_file(override: Environment | None = None) -> str:
-    """GAbsolute path to .env file (e.g., "/path/to/app/env_files/.env_local")"""
-    env = os.getenv("ENV", Environment.LOCAL.value)
+    """Absolute path to the environment-specific .env file."""
+    env = _normalize_environment_value(os.getenv("ENV", Environment.LOCAL.value))
 
     # Allow override only in local environment for testing
     if env == Environment.LOCAL.value and override:

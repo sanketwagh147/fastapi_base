@@ -24,7 +24,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core import app_lifespan, register_routers, setup_logging
 from app.core.exceptions.handlers import register_exception_handlers
-from app.main_config import cors_config, fastapi_config
+from app.main_config import cors_config, fastapi_config, settings
 
 # =============================================================================
 # Setup Logging (before app creation)
@@ -37,6 +37,10 @@ app = FastAPI(
     version=fastapi_config.version,
     lifespan=app_lifespan,
     debug=fastapi_config.debug,
+    docs_url=fastapi_config.docs_url,
+    redoc_url=fastapi_config.redoc_url,
+    openapi_url=fastapi_config.openapi_url,
+    root_path=fastapi_config.root_path,
 )
 
 # Configure CORS
@@ -73,8 +77,9 @@ if __name__ == "__main__":
     # Use our structured logging config, disable uvicorn's default logging
     uvicorn.run(
         "app.main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
+        host=settings.host,
+        port=settings.port,
+        reload=settings.reload,
+        workers=settings.workers,
         log_config=None,  # Disable uvicorn's logging config to use our structlog setup
     )

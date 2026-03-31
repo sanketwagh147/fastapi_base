@@ -1,529 +1,200 @@
 # FastAPI Backend Template
 
-> **Opinionated, production-ready FastAPI base project with async SQLAlchemy, httpx, and Pydantic**
+Opinionated FastAPI starter focused on async I/O, structured configuration, connection pooling, standardized errors, and route auto-discovery.
+The repository is intended to be a base backend template rather than a finished product. It gives you the application shell, environment loading, HTTP/database plumbing, logging, auth dependency stubs, and testing scaffolding needed to start a service quickly.
 
-A modern, async-first FastAPI template designed for building scalable REST APIs with strong typing, database connection pooling, and clean architecture patterns. This template provides a solid foundation for microservices and monolithic applications alike.
+## What is included
+- FastAPI application bootstrapping with lifespan-based startup and shutdown
+- Async SQLAlchemy engine and session management
+- Shared httpx async client pool
+- Route auto-discovery from `app/routes`
+- Centralized exception hierarchy and JSON error responses
+- Pydantic settings for environment-driven configuration
+- Structured logging with correlation IDs
+- Base repository and response schema helpers
+- Docker, docker compose, Makefile, Ruff, MyPy, and pytest setup
 
-## 🚀 Quick Start
-
-### Prerequisites
-
-- Python 3.11+
-- UV (fast Python package manager)
-
-### Installation
-
-```bash
-# Install UV
-brew install uv
-
-# Install dependencies
-uv sync
-
-# For PostgreSQL support
-uv sync --extra postgres
-
-# For SQLite support
-uv sync --extra sqlite
-```
-
-### Run the Application
-
-```bash
-# Development server with auto-reload
-uv run uvicorn main:app --reload --port 8000
-
-# Or use the main.py directly
-uv run python main.py
-```
-
-Visit:
-- API: http://localhost:8000
-- Docs: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
-
-## ✨ Key Features
-
-### Opinionated Architecture
-- **Async-First**: 100% async/await throughout - from database to HTTP clients
-- **Type-Safe**: Heavy use of Pydantic for request/response validation and settings
-- **Repository Pattern**: Clean separation between business logic and data access
-- **Connection Pooling**: Built-in async connection pools for databases and HTTP clients
-
-### Technology Stack
-- **FastAPI** - Modern, high-performance web framework with automatic OpenAPI docs
-- **SQLAlchemy 2.0** - Async ORM with connection pooling and optimized queries
-- **Pydantic V2** - Runtime validation, serialization, and settings management
-- **httpx** - Async HTTP client with connection pooling and HTTP/2 support
-- **Uvicorn** - Lightning-fast ASGI server with auto-reload
-
-### Production-Ready Features
-- ✅ Environment-based configuration (local/dev/uat/prod)
-- ✅ Kubernetes secrets integration
-- ✅ Database connection pooling with health checks
-- ✅ HTTP client connection pooling and retry logic
-- ✅ Auto-discovery of API routes
-- ✅ CORS middleware pre-configured
-- ✅ Structured logging ready
-- ✅ Clean shutdown with lifespan management
-
-## 📁 Project Structure
-
-```
+## Current project layout
 fastapi-backend/
 ├── app/
-│   ├── main.py                    # Application entry point with lifespan management
-│   ├── main_config.py            # Environment-aware configuration with Pydantic
-│   │
-│   ├── core/                     # Infrastructure & framework code
-│   │   ├── database.py           # Async SQLAlchemy connection pool
-│   │   ├── base_repository.py    # Generic CRUD repository pattern
-│   │   ├── rest_api.py           # httpx client pool for external APIs
-│   │   ├── route_discovery.py    # Auto-register routes from modules
-│   │   ├── config_loader.py      # Environment file loading logic
-│   │   ├── secrets.py            # Kubernetes secrets integration
-│   │   ├── dependencies.py       # FastAPI dependency injection
-│   │   └── enums.py              # Shared enums and constants
-│   │
-│   ├── models/                   # SQLAlchemy ORM models
-│   │   ├── base.py               # Base model with common fields (id, timestamps)
-│   │   ├── event.py              # Example: Event model
-│   │   └── image.py              # Example: Image model
-│   │
-│   ├── repository/               # Data access layer (repository pattern)
-│   │   ├── event_repository.py   # Event-specific queries
-│   │   └── image_repository.py   # Image-specific queries
-│   │
-│   ├── routes/                   # API endpoints (auto-discovered)
-│   │   └── health.py             # Health check endpoint
-│   │
-│   └── utils/                    # Shared utilities
-│       └── client_pool.py        # Alternative httpx pool implementation
-│
-├── scripts/                      # Utility scripts
-│   └── migrate_data.py          # Data migration example
-│
-├── pyproject.toml               # Dependencies & project metadata (UV/pip)
-└── README.md                    # This file
-```
+│   ├── main.py
+│   ├── main_config.py
+│   ├── core/
+│   │   ├── auth.py
+│   │   ├── base_repository.py
+│   │   ├── config_loader.py
+│   │   ├── database.py
+│   │   ├── dependencies.py
+│   │   ├── http_calls.py
+│   │   ├── lifespan.py
+│   │   ├── logging_config.py
+│   │   ├── route_discovery.py
+│   │   ├── secrets.py
+│   │   └── exceptions/
+│   ├── env_files/
+│   │   ├── .env_base
+│   │   ├── .env_local
+│   │   ├── .env.example
+│   │   └── .secrets_local.example
+│   ├── models/
+│   │   └── base.py
+│   ├── repository/
+│   ├── routes/
+│   │   ├── auth_examples.py
+│   │   └── health.py
+│   └── schemas/
+│       └── base.py
+├── tests/
+│   ├── conftest.py
+│   └── test_exceptions.py
+├── Dockerfile
+├── docker-compose.yml
+├── Makefile
+└── pyproject.toml
+## Quick start
 
-### Architecture Patterns
+### Requirements
+- Python 3.11+
+- `uv`
 
-**Repository Pattern**: Abstracts database operations with a generic base repository
-```python
-class EventRepository(BaseRepository[Event, int]):
-    async def find_by_location(self, location: str) -> list[Event]:
-        # Custom query logic
-```
-
-**Dependency Injection**: FastAPI dependencies for session management
-```python
-async def get_db_session() -> AsyncIterator[AsyncSession]:
-    async with AsyncDBPool.get_session() as session:
-        yield session
-```
-
-**Configuration Management**: Pydantic settings with environment-aware loading
-```python
-# Supports .env files: .env, .env.local, .env.production
-config = DatabaseConfig()  # Auto-loads from environment
-```
-
-## 🔧 Configuration
-
-### Environment-Based Configuration
-
-This template uses **Pydantic Settings** for type-safe, environment-aware configuration:
-
-```python
-# Automatically loads from .env, .env.local, .env.production, etc.
-from app.main_config import database_config, fastapi_config, cors_config
-
-# Type-safe access with validation
-db_url = database_config.url  # Validated at startup
-pool_size = database_config.pool_size  # Default: 5
-```
-
-**Supported Environments**: `LOCAL`, `DEV`, `UAT`, `UATBIZ`, `SANITY`, `PROD`
-
-Configuration files are loaded in order:
-1. `.env` (base configuration)
-2. `.env.{environment}` (environment-specific overrides)
-
-### Database Configuration
-
-**PostgreSQL** (Recommended for production):
-```python
-# .env.production
-DATABASE_HOST=postgres.example.com
-DATABASE_PORT=5432
-DATABASE_USER=app_user
-DATABASE_PASSWORD=secure_password
-DATABASE_NAME=production_db
-DATABASE_POOL_SIZE=20
-DATABASE_MAX_OVERFLOW=10
-```
-
-**SQLite** (Development):
-```python
-# .env.local
-DATABASE_URL=sqlite+aiosqlite:///./local.db
-DATABASE_ECHO=true
-```
-
-**Connection Pooling** (automatic):
-- Pool size: 5-20 connections (configurable)
-- Pool pre-ping: Health checks before use
-- Pool recycling: Auto-recycle stale connections
-- Async engine with asyncpg/aiosqlite
-
-### HTTP Client Configuration
-
-Built-in **httpx** connection pool with retry logic:
-
-```python
-from app.core import HttpxRestClientPool, ClientConfig, TimeoutConfig
-
-# Configure global client
-config = ClientConfig(
-    timeout=TimeoutConfig(connect=5.0, read=30.0),
-    pool=PoolConfig(max_connections=100, max_keepalive=20),
-    retry=RetryConfig(max_retries=3),
-    http2=True
-)
-HttpxRestClientPool.configure(config)
-
-# Use in your code
-async with HttpxRestClientPool.get_client() as client:
-    response = await client.get("https://api.example.com/data")
-```
-
-### CORS Configuration
-
-```python
-# .env
-CORS_ALLOW_ORIGINS=["http://localhost:3000", "https://app.example.com"]
-CORS_ALLOW_CREDENTIALS=true
-CORS_ALLOW_METHODS=["GET", "POST", "PUT", "DELETE"]
-CORS_ALLOW_HEADERS=["*"]
-```
-
-## 📊 Database Operations
-
-### Using the Base Repository
-
-The `BaseRepository` provides common CRUD operations:
-
-```python
-from app.repository.event_repository import EventRepository
-
-async with AsyncDBPool.get_session() as session:
-    repo = EventRepository(Event, session)
-
-    # Create
-    event = await repo.create(name="Conference", location="NYC")
-
-    # Read
-    event = await repo.get_by_id(1)
-    events = await repo.get_all(limit=10, offset=0)
-
-    # Update
-    event = await repo.update(1, name="Updated Conference")
-
-    # Delete
-    await repo.delete(1)
-
-    # Custom queries
-    events = await repo.find_by_location("NYC")
-
-    await session.commit()
-```
-
-### Transaction Management
-
-```python
-async with AsyncDBPool.get_session() as session:
-    try:
-        # Multiple operations in one transaction
-        user = await user_repo.create(email="user@example.com")
-        profile = await profile_repo.create(user_id=user.id)
-
-        await session.commit()
-    except Exception:
-        await session.rollback()  # Auto-rollback on exception
-        raise
-```
-
-## 📊 Database Migration
-
-Migrate data from JSON files:
-
-```bash
-uv run python scripts/migrate_data.py
-```
-
-## 🧪 Development
-
-### Code Formatting & Linting
-
-```bash
-# Format code
-uv run ruff format .
-
-# Lint code
-uv run ruff check .
-
-# Auto-fix issues
-uv run ruff check --fix .
-```
-
-### Type Checking
-
-```bash
-uv run mypy app/
-```
-
-### Run Tests
-
-```bash
-uv run pytest
-```
-
-## 📦 Dependencies
-
-### Core Stack
-
-- **FastAPI** (>=0.109.0) - Modern, fast web framework with automatic OpenAPI documentation
-- **SQLAlchemy** (>=2.0.25) - Async ORM with powerful query building and connection pooling
-- **Pydantic** (>=2.5.0) - Runtime type validation and serialization
-- **Pydantic Settings** (>=2.1.0) - Environment-based configuration management
-- **httpx** (>=0.26.0) - Async HTTP client with HTTP/2, connection pooling, and retries
-- **Uvicorn** (>=0.27.0) - ASGI server with auto-reload and performance optimizations
-
-### Database Drivers (Optional Extras)
-
-Install based on your database:
-
-```bash
-# PostgreSQL (recommended for production)
-uv sync --extra postgres
-# Includes: asyncpg>=0.31.0
-
-# SQLite (development/testing)
-uv sync --extra sqlite
-# Includes: aiosqlite>=0.19.0
-
-# MySQL
-uv sync --extra mysql
-# Includes: aiomysql>=0.2.0
-```
-
-### Development Tools (Optional)
-
+### Install dependencies
 ```bash
 uv sync --extra dev
-# Includes: ruff, mypy, pytest, pytest-asyncio, httpx-mock
 ```
-
-## 🏗️ Architecture & Design Principles
-
-## 🏗️ Architecture & Design Principles
-
-### Opinionated Choices
-
-This template makes deliberate architectural decisions to maximize productivity:
-
-**1. Async-First Philosophy**
-- All I/O operations use `async/await` - no blocking calls
-- Async SQLAlchemy sessions with connection pooling
-- Async httpx client for external API calls
-- Enables high concurrency with low resource usage
-
-**2. Repository Pattern**
-- Abstract data access logic from business logic
-- Generic base repository with common CRUD operations
-- Specialized repositories for complex queries
-- Easy to test and mock
-
-**3. Pydantic Everywhere**
-- Request/response validation (FastAPI)
-- Configuration management (Pydantic Settings)
-- Database model serialization
-- Type safety across the application
-
-**4. Dependency Injection**
-- FastAPI's DI system for session management
-- Singleton patterns for connection pools
-- Easy to override in tests
-
-**5. Environment-Aware Configuration**
-- Separate configs for local/dev/staging/production
-- Kubernetes secrets integration
-- No hardcoded credentials
-
-### Layered Architecture
-
-```
-┌─────────────────────────────────────┐
-│         API Layer (Routes)          │  FastAPI endpoints
-├─────────────────────────────────────┤
-│      Service Layer (Optional)       │  Business logic
-├─────────────────────────────────────┤
-│    Repository Layer (Data Access)   │  Database queries
-├─────────────────────────────────────┤
-│      Models Layer (ORM Models)      │  SQLAlchemy models
-├─────────────────────────────────────┤
-│     Core Layer (Infrastructure)     │  DB pools, HTTP clients
-└─────────────────────────────────────┘
-```
-
-**Benefits**:
-- Clear separation of concerns
-- Easy to test each layer independently
-- Scalable from monolith to microservices
-- Follows clean architecture principles
-
-### Code Organization Conventions
-
-1. **Models** (`app/models/`) - SQLAlchemy ORM models only
-2. **Repositories** (`app/repository/`) - Database access patterns
-3. **Routes** (`app/routes/`) - API endpoints (auto-discovered)
-4. **Core** (`app/core/`) - Framework and infrastructure code
-5. **Utils** (`app/utils/`) - Shared utilities without business logic
-
-## 🚀 Usage Examples
-
-### Creating a New Model
-
-```python
-# app/models/user.py
-from sqlalchemy import String
-from sqlalchemy.orm import Mapped, mapped_column
-from app.models.base import Base
-
-class User(Base):
-    __tablename__ = "users"
-
-    email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
-    name: Mapped[str] = mapped_column(String(100))
-    is_active: Mapped[bool] = mapped_column(default=True)
-```
-
-### Creating a Repository
-
-```python
-# app/repository/user_repository.py
-from app.core import BaseRepository
-from app.models.user import User
-
-class UserRepository(BaseRepository[User, int]):
-    async def find_by_email(self, email: str) -> User | None:
-        result = await self.session.execute(
-            select(User).where(User.email == email)
-        )
-        return result.scalar_one_or_none()
-
-    async def find_active_users(self) -> list[User]:
-        result = await self.session.execute(
-            select(User).where(User.is_active == True)
-        )
-        return list(result.scalars().all())
-```
-
-### Creating an API Endpoint
-
-```python
-# app/routes/users.py
-from fastapi import APIRouter, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
-from app.core import get_db_session
-from app.repository.user_repository import UserRepository
-from pydantic import BaseModel
-
-router = APIRouter(prefix="/users", tags=["Users"])
-
-class UserResponse(BaseModel):
-    id: int
-    email: str
-    name: str
-    is_active: bool
-
-    class Config:
-        from_attributes = True
-
-@router.get("/{user_id}", response_model=UserResponse)
-async def get_user(
-    user_id: int,
-    session: AsyncSession = Depends(get_db_session)
-):
-    repo = UserRepository(User, session)
-    user = await repo.get_by_id(user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    return user
-```
-
-Routes are **auto-discovered** - no manual registration needed!
-
-Notes:
-
-- Prefer setting `prefix`/`tags` in `APIRouter(...)`.
-- Optionally export `ROUTER_CONFIG` for extra `include_router(...)` kwargs; if `prefix`/`tags` are missing, defaults are generated.
-
-
-### Making External API Calls
-
-```python
-from app.core import fetch_url
-
-# Simple GET request
-data = await fetch_url("https://api.example.com/data")
-
-# With custom options
-response = await fetch_url(
-    "https://api.example.com/users",
-    method="POST",
-    json={"name": "John"},
-    headers={"Authorization": "Bearer token"}
-)
-```
-
-## 📊 Database Operations
-
-## 🤝 Contributing
-
-### Development Guidelines
-
-1. **Maintain async consistency** - All I/O should use async/await
-2. **Use type hints** - Leverage Pydantic and typing module
-3. **Follow repository pattern** - Keep data access in repository layer
-4. **Validate with Pydantic** - Use Pydantic models for all DTOs
-5. **Add docstrings** - Document public methods and classes
-6. **Keep it testable** - Use dependency injection
-
-### Code Style
+If you prefer editable install style tooling instead of `uv sync`, the repository also supports:
 
 ```bash
-# Format code
-uv run ruff format .
-
-# Lint and auto-fix
-uv run ruff check --fix .
-
-# Type checking
-uv run mypy app/
+make dev
 ```
 
-## 🎯 Design Philosophy
+### Local configuration
+This template loads configuration from `app/env_files/.env_base` and then `app/env_files/.env_<ENV>`.
 
-This template is **opinionated** to promote consistency and best practices:
+For local development, the committed defaults already point to:
+- `ENV=local`
+- host `0.0.0.0`
+- port `8000`
+- PostgreSQL via `postgresql+asyncpg`
 
-- ✅ **Async everywhere** - No sync database or HTTP calls
-- ✅ **Type safety** - Pydantic models validate at runtime
-- ✅ **Dependency injection** - Easy testing and modularity
-- ✅ **Connection pooling** - Efficient resource management
-- ✅ **Environment configuration** - Production-ready from day one
-- ✅ **Clean architecture** - Separation of concerns
+Create your local secrets file from the example template:
+```bash
+cp app/env_files/.secrets_local.example app/env_files/.secrets_local
+```
+Then update the credentials in `app/env_files/.secrets_local`.
+
+### Start dependencies
+If you want a local PostgreSQL instance via Docker:
+
+```bash
+docker compose up -d postgres
+```
+
+### Run the API
+```bash
+make run
+```
+
+This uses the Python module entrypoint so the app keeps the repository's structured logging configuration.
+
+### Available endpoints
+- `GET /api/`
+- `GET /api/health`
+- `GET /api/health/ready`
+- `GET /api/auth-examples/me`
+- `GET /api/auth-examples/me/active`
+- `GET /api/auth-examples/admin-only`
+- `GET /api/auth-examples/editor-or-admin`
+
+OpenAPI docs are available by default at:
+
+- `http://localhost:8000/docs`
+- `http://localhost:8000/redoc`
+
+## Configuration model
+Configuration is defined in `app/main_config.py` and loaded through Pydantic settings.
+
+Load order:
+1. Environment variables
+2. `app/env_files/.env_base`
+3. `app/env_files/.env_<ENV>`
+4. Secret lookups for fields configured through `secret_field(...)`
+
+The environment value is normalized, so both lowercase and uppercase forms like `local` and `LOCAL` work.
+### Important config groups
+
+- `Settings`: host, port, reload, workers, debug, environment
+- `FastAPIConfig`: title, docs URLs, root path, debug
+- `DatabaseConfig`: async SQLAlchemy URL and pool settings
+- `CORSConfig`: origins, methods, headers, credentials
+- `LoggingConfig`: log format and log levels
+- `JWTConfig`: JWT settings placeholder for future auth implementation
+
+## Architecture notes
+### Application startup
+
+- Logging is configured before the app instance is created
+- FastAPI lifespan initializes the shared database pool and shared HTTP client
+- Routers are auto-discovered from `app/routes`
+- Exception handlers are registered centrally
+
+### Database layer
+- `app/core/database.py` manages a singleton async engine and sessionmaker
+- `app/core/base_repository.py` provides generic CRUD, filtering, paging, and count helpers
+- `app/models/base.py` contains the shared SQLAlchemy base and timestamp mixins
+
+### HTTP client layer
+- `app/core/http_calls.py` exposes a shared `httpx.AsyncClient`
+- Timeout, retry, and pool settings are configurable through Pydantic models
+
+### Auth layer
+- `app/core/auth.py` currently provides dependency stubs and role checks
+- The token validation path is intentionally a placeholder and must be replaced with real JWT verification before production use
+
+## Validation commands
+These commands are currently passing in the repository:
+
+```bash
+.venv/bin/ruff check app tests
+.venv/bin/mypy app
+.venv/bin/pytest -q
+```
+
+There is also a convenience target for most day-to-day checks:
+
+```bash
+make check
+```
+
+## Docker usage
+Run the whole local stack:
+
+```bash
+docker compose up --build
+```
+
+The Docker image starts the app through `python -m app.main`, which preserves the app's logging setup and runtime configuration.
+
+## How to extend this template
+Typical next steps for a real service:
+
+1. Add domain models under `app/models`
+2. Add repositories under `app/repository`
+3. Add route modules under `app/routes`
+4. Replace the auth placeholder with real JWT verification
+5. Add domain-specific tests beyond the shipped exception coverage
+
+## What this template does not include yet
+The project is usable as a starting point, but a few production-grade pieces are still intentionally left for the service owner to add:
+
+- Alembic migrations
+- Real authentication and token issuance
+- Service layer examples for domain orchestration
+- Background job or queue integration
+- CI workflow files
+- Pre-commit hooks
+- Metrics and tracing exporters
+
+If your goal is a "ready to go" backend template for multiple services, those are the next highest-value additions.
 
 **Not included** (by design):
 - ❌ Authentication/authorization (project-specific)

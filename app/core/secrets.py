@@ -48,6 +48,11 @@ __all__ = [
 _DEFAULT_SECRETS_DIR = Path(__file__).parent.parent / "env_files"
 
 
+def _normalize_env(value: str | None) -> str:
+    """Normalize environment names from ENV for secrets lookup."""
+    return (value or "local").strip().lower()
+
+
 class SecretsMode(str, Enum):
     """Secret loading modes."""
 
@@ -81,7 +86,7 @@ class SecretsLoader:
         """
         self.mode = SecretsMode(mode) if isinstance(mode, str) else mode
         self.project_name = project_name
-        self.env = env or os.getenv("ENV", "local")
+        self.env = _normalize_env(env or os.getenv("ENV", "local"))
 
         # Default: app/env_files for local, /etc/{project_name} for production
         if base_path:

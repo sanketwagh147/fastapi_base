@@ -5,6 +5,7 @@ with request correlation IDs and structured output.
 """
 
 import structlog
+from fastapi import APIRouter
 
 # =============================================================================
 # Basic Usage - Works everywhere in your app
@@ -31,8 +32,6 @@ def example_basic_logging() -> None:
 # =============================================================================
 # In Route Handlers - Request ID automatically included
 # =============================================================================
-
-from fastapi import APIRouter
 
 router = APIRouter()
 

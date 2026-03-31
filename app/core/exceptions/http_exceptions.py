@@ -176,7 +176,7 @@ class UnprocessableEntityError(ClientError):
         error_code: str | None = None,
         detail: dict[str, Any] | None = None,
     ) -> None:
-        super().__init__(message, error_code, status.HTTP_422_UNPROCESSABLE_ENTITY, detail)
+        super().__init__(message, error_code, status.HTTP_422_UNPROCESSABLE_CONTENT, detail)
 
 
 # ============================================================================
